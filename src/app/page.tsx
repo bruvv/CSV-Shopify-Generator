@@ -8,9 +8,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { shopifyCustomersSchema, type ShopifyCustomersFormData, type ShopifyCustomerFormData } from '@/schemas/customer';
 import { generateShopifyCustomerCsv, parseMagentoCustomerCsv, type ParseCustomerResult } from '@/lib/customer-csv-converter';
 import { Button } from '@/components/ui/button';
-import { CustomerEntryForm } from '@/components/customer-entry-form'; // Updated import
+import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, Users, RefreshCw } from 'lucide-react'; // Users icon instead of FileText
+import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 
@@ -95,50 +95,39 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
           const csvString = e.target?.result as string;
           const result: ParseCustomerResult = parseMagentoCustomerCsv(csvString);
 
-          if (result.type === 'customers') {
+          if (result.type === 'customers_found') {
             const parsedCustomers = result.data;
-            if (parsedCustomers.length > 0) {
-              const newCustomers = parsedCustomers.map(c => ({
-                id: c.id || crypto.randomUUID(),
-                firstName: c.firstName || '',
-                lastName: c.lastName || '',
-                email: c.email || '',
-                company: c.company || '',
-                address1: c.address1 || '',
-                address2: c.address2 || '',
-                city: c.city || '',
-                province: c.province || '',
-                provinceCode: c.provinceCode || '',
-                country: c.country || '',
-                countryCode: c.countryCode || '',
-                zip: c.zip || '',
-                phone: c.phone || '',
-                acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
-                tags: c.tags || '',
-                note: c.note || '',
-                taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
-              } as ShopifyCustomerFormData));
-              reset({ customers: newCustomers });
-              let importMessage = `${newCustomers.length} customers loaded.`;
-              if (result.format === 'magento_customer') {
-                importMessage = `${newCustomers.length} customers loaded from Magento Customer CSV.`;
-              }
-              if (result.message) {
-                importMessage += ` ${result.message}`;
-              }
-              toast({ title: 'CSV Imported', description: importMessage });
-            } else {
-               toast({ title: 'Import Note', description: result.message || 'CSV processed, but no valid customer entries were found.', variant: 'default'});
-            }
-          } else if (result.type === 'products') {
-             toast({ title: 'Import Info', description: result.message, variant: 'default' });
-          } else if (result.type === 'unknown_csv' || result.type === 'empty') {
+            const newCustomers = parsedCustomers.map(c => ({
+              id: c.id || crypto.randomUUID(),
+              firstName: c.firstName || '',
+              lastName: c.lastName || '',
+              email: c.email || '',
+              company: c.company || '',
+              address1: c.address1 || '',
+              address2: c.address2 || '',
+              city: c.city || '',
+              province: c.province || '',
+              provinceCode: c.provinceCode || '',
+              country: c.country || '',
+              countryCode: c.countryCode || '',
+              zip: c.zip || '',
+              phone: c.phone || '',
+              acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
+              tags: c.tags || '',
+              note: c.note || '',
+              taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
+            } as ShopifyCustomerFormData));
+            reset({ customers: newCustomers });
+            toast({ title: 'CSV Imported Successfully', description: result.message });
+          } else if (result.type === 'no_customers_extracted') {
+             toast({ title: 'Import Note', description: result.message, variant: 'default'});
+          } else if (result.type === 'parse_error') {
             toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
           }
 
         } catch (error) {
            console.error("Error processing CSV:", error);
-           toast({ title: 'Import Failed', description: 'Could not process the CSV file. Please check the format.', variant: 'destructive'});
+           toast({ title: 'Import Failed', description: 'Could not process the CSV file. Please check the format and content.', variant: 'destructive'});
         }
       };
       reader.readAsText(file);
@@ -157,7 +146,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             <h1 className="text-4xl font-bold text-primary">Magento to Shopify Customer CSV Converter</h1>
           </div>
           <p className="text-lg text-muted-foreground">
-            Upload your Magento customer CSV, review and edit if needed, then generate an importable Shopify customer CSV file.
+            Upload your Magento (or other) customer CSV, review and edit if needed, then generate an importable Shopify customer CSV file.
           </p>
         </header>
 
@@ -165,7 +154,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             <h2 className="text-2xl font-semibold mb-4 text-primary">Actions</h2>
             <div className="flex flex-wrap gap-4">
                 <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-                    <Upload className="mr-2 h-5 w-5" /> Import Magento Customer CSV
+                    <Upload className="mr-2 h-5 w-5" /> Import Customer CSV
                 </Button>
                 <input
                     type="file"
@@ -190,11 +179,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
              <div className="text-center py-10">
               <Image src="https://placehold.co/300x200.png" alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint="empty state people" />
               <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
-              <p className="text-sm text-muted-foreground">Click "Import Magento Customer CSV" or "Add New Customer" to get started.</p>
+              <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
             </div>
           )}
           {fields.map((field, index) => (
-            <CustomerEntryForm // Updated component
+            <CustomerEntryForm
               key={field.id}
               control={control}
               index={index}

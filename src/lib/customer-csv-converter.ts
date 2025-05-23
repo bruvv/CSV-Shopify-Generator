@@ -1,17 +1,10 @@
 
 import type { ShopifyCustomerFormData } from '@/schemas/customer';
 
-export type ParsedCustomerDataPayload = {
-  data: Partial<ShopifyCustomerFormData>[];
-  format: 'magento_customer' | 'unknown_customer_format';
-  message?: string;
-}
-
 export type ParseCustomerResult =
-  | ({ type: 'customers' } & ParsedCustomerDataPayload)
-  | { type: 'products'; message: string } // To indicate if it looks like a product CSV
-  | { type: 'unknown_csv'; message: string }
-  | { type: 'empty'; message: string };
+  | { type: 'customers_found'; data: Partial<ShopifyCustomerFormData>[]; message: string }
+  | { type: 'no_customers_extracted'; message: string } // Headers might be okay/unclear, but no data rows, or rows lack essential info
+  | { type: 'parse_error'; message: string }; // Critical error, e.g. empty file, no headers
 
 // Helper function to escape CSV fields
 const escapeCsvField = (field: string | number | boolean | undefined | null): string => {
@@ -35,8 +28,8 @@ const arrayToCsv = (headers: string[], data: (string | number | boolean | undefi
 
 export const generateShopifyCustomerCsv = (customers: ShopifyCustomerFormData[]): string => {
   const headers = [
-    'First Name', 'Last Name', 'Email', 'Company', 'Address1', 'Address2', 'City', 'Province', 
-    'Province Code', 'Country', 'Country Code', 'Zip', 'Phone', 'Accepts Marketing', 'Tags', 
+    'First Name', 'Last Name', 'Email', 'Company', 'Address1', 'Address2', 'City', 'Province',
+    'Province Code', 'Country', 'Country Code', 'Zip', 'Phone', 'Accepts Marketing', 'Tags',
     'Note', 'Tax Exempt'
   ];
 
@@ -62,19 +55,19 @@ const parseCsvLine = (line: string, delimiter: ',' | ';'): string[] => {
 
 export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult => {
   const trimmedCsvString = csvString.trim();
-  if (!trimmedCsvString) return { type: 'empty', message: 'The CSV file is empty.' };
+  if (!trimmedCsvString) return { type: 'parse_error', message: 'The CSV file is empty.' };
 
-  const lines = trimmedCsvString.split(/\r?\n/); // Handles both CRLF and LF
-  if (lines.length === 0) return { type: 'empty', message: 'The CSV file has no lines.' };
-  
+  const lines = trimmedCsvString.split(/\r?\n/);
+  if (lines.length === 0) return { type: 'parse_error', message: 'The CSV file has no lines.' };
+
   const headerLine = lines.shift();
-  if (!headerLine) return { type: 'empty', message: 'The CSV file has no header line.' };
-  
+  if (!headerLine) return { type: 'parse_error', message: 'The CSV file has no header line.' };
+
   const delimiter = detectDelimiter(headerLine);
   const rawHeaders = parseCsvLine(headerLine, delimiter);
   const headers = rawHeaders.map(h => h.toLowerCase());
 
-  if (headers.length === 0) return { type: 'unknown_csv', message: 'Could not parse headers from the CSV file.' };
+  if (headers.length === 0) return { type: 'parse_error', message: 'Could not parse headers from the CSV file.' };
 
   const findHeaderIndex = (aliases: string[]) => {
     for (const alias of aliases) {
@@ -84,54 +77,63 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     return -1;
   }
 
-  // Magento Customer specific header checks
+  // Common customer field headers (Magento and generic)
   const emailIdx = findHeaderIndex(['email']);
-  const firstnameIdx = findHeaderIndex(['firstname', 'first_name']);
-  const lastnameIdx = findHeaderIndex(['lastname', 'last_name']);
-  const companyAddressIdx = findHeaderIndex(['company_address', 'street', 'address']); // Broader match
+  const firstnameIdx = findHeaderIndex(['firstname', 'first_name', 'first name']);
+  const lastnameIdx = findHeaderIndex(['lastname', 'last_name', 'last name']);
+  const companyAddressIdx = findHeaderIndex(['company_address', 'street', 'address', 'address1']);
+  const address2Idx = findHeaderIndex(['address2', 'street2']);
   const companyNameIdx = findHeaderIndex(['company_name', 'company']);
   const contactPhoneIdx = findHeaderIndex(['contact_phone', 'telephone', 'phone']);
+  const countryIdx = findHeaderIndex(['land', 'country_id', 'country', 'country_code']);
+  const cityIdx = findHeaderIndex(['plaats', 'city']);
+  const postcodeIdx = findHeaderIndex(['postcode', 'zip', 'zip_code', 'postal_code']);
+  const provinceIdx = findHeaderIndex(['province', 'state', 'region']);
+  const provinceCodeIdx = findHeaderIndex(['province_code', 'state_code', 'region_code']);
+  
+  // Magento specific tags/notes fields
   const websiteIdx = findHeaderIndex(['_website', 'website']);
   const storeIdx = findHeaderIndex(['_store', 'store']);
   const groupIdIdx = findHeaderIndex(['group_id', 'customer_group']);
-  const countryIdx = findHeaderIndex(['land', 'country_id', 'country']);
-  const cityIdx = findHeaderIndex(['plaats', 'city']);
-  const postcodeIdx = findHeaderIndex(['postcode', 'zip']);
   const createdAtIdx = findHeaderIndex(['created_at']);
-
-  // Product CSV detection (to inform user if they uploaded the wrong type)
-  const productSkuIdx = findHeaderIndex(['sku', 'variant sku']);
-  const productTitleIdx = findHeaderIndex(['name', 'title']);
-  const productPriceIdx = findHeaderIndex(['price', 'variant price']);
-
-  if (productSkuIdx !== -1 && productTitleIdx !== -1 && productPriceIdx !== -1) {
-      return { type: 'products', message: 'This appears to be a product CSV. This tool is now configured for customer CSVs.' };
-  }
-  
-  const isLikelyMagentoCustomer = emailIdx !== -1 && (firstnameIdx !== -1 || lastnameIdx !== -1);
-
-  if (!isLikelyMagentoCustomer) {
-    return { type: 'unknown_csv', message: 'Could not identify this as a Magento Customer CSV. Key headers like "email", "firstname", or "lastname" are missing.' };
-  }
+  const notesIdx = findHeaderIndex(['notes', 'note', 'customer_notes']); // General notes
 
   const customers: Partial<ShopifyCustomerFormData>[] = [];
-  let parseMessage: string | undefined;
+  let mappableHeadersFound = [emailIdx, firstnameIdx, lastnameIdx, companyAddressIdx, companyNameIdx, contactPhoneIdx, countryIdx, cityIdx, postcodeIdx].some(idx => idx !== -1);
+
+  if (!mappableHeadersFound && lines.length > 0) {
+     return { type: 'no_customers_extracted', message: 'No recognizable customer data columns (like email, name, address) were found in the CSV header. Please check your file.' };
+  }
+
 
   for (const line of lines) {
+    if (line.trim() === '') continue; // Skip empty lines
     const values = parseCsvLine(line, delimiter);
     if (values.length === 0 || values.every(v => v === '')) continue;
 
     const customer: Partial<ShopifyCustomerFormData> = { id: crypto.randomUUID() };
-    
+
     if (emailIdx !== -1) customer.email = values[emailIdx];
     if (firstnameIdx !== -1) customer.firstName = values[firstnameIdx];
     if (lastnameIdx !== -1) customer.lastName = values[lastnameIdx];
     if (companyNameIdx !== -1) customer.company = values[companyNameIdx];
-    if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx]; // Simplified mapping
+    
+    if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx];
+    if (address2Idx !== -1) customer.address2 = values[address2Idx];
+    
     if (cityIdx !== -1) customer.city = values[cityIdx];
     if (postcodeIdx !== -1) customer.zip = values[postcodeIdx];
-    if (countryIdx !== -1) customer.country = values[countryIdx];
+    if (countryIdx !== -1) { // Attempt to map country code if full name not available
+        customer.country = values[countryIdx];
+        if (values[countryIdx]?.length === 2 && values[countryIdx] === values[countryIdx]?.toUpperCase()) {
+            customer.countryCode = values[countryIdx];
+        }
+    }
+    if (provinceIdx !== -1) customer.province = values[provinceIdx];
+    if (provinceCodeIdx !== -1) customer.provinceCode = values[provinceCodeIdx];
+
     if (contactPhoneIdx !== -1) customer.phone = values[contactPhoneIdx];
+    if (notesIdx !== -1) customer.note = values[notesIdx];
 
     let tagsArray: string[] = [];
     if (websiteIdx !== -1 && values[websiteIdx]) tagsArray.push(`magento_website:${values[websiteIdx]}`);
@@ -140,22 +142,23 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     if (createdAtIdx !== -1 && values[createdAtIdx]) tagsArray.push(`magento_created_at:${values[createdAtIdx]}`);
     
     customer.tags = tagsArray.join(', ');
-    
-    // Set default values for Shopify specific fields if not mapped
-    customer.acceptsMarketing = false; // Default, Magento doesn't have direct equivalent in simple export
-    customer.taxExempt = false; // Default
 
-    if (customer.email || customer.firstName || customer.lastName) {
+    customer.acceptsMarketing = false; // Default, can be refined if a column exists
+    customer.taxExempt = false; // Default, can be refined if a column exists
+
+    // Only add customer if some essential data is present
+    if (customer.email || customer.firstName || customer.lastName || customer.company || customer.address1 || customer.phone) {
       customers.push(customer);
     }
   }
 
-  if (customers.length === 0 && lines.length > 0) {
-    parseMessage = "Magento Customer CSV detected, but no actual customer rows could be parsed or essential data like email/name was missing in rows.";
-  } else if (customers.length > 0) {
-    parseMessage = `${customers.length} customers loaded from Magento CSV. Review and generate Shopify CSV. Note: Address mapping is simplified; review address fields.`;
+  if (customers.length > 0) {
+    return { type: 'customers_found', data: customers, message: `${customers.length} customer(s) loaded from the CSV. Review and edit if needed.` };
+  } else {
+    if (mappableHeadersFound) {
+         return { type: 'no_customers_extracted', message: 'CSV headers were recognized, but no valid customer data rows could be extracted. Check if rows have essential info like email or names.' };
+    }
+    // This case should be rare due to the earlier mappableHeadersFound check, but as a fallback:
+    return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
   }
-
-
-  return { type: 'customers', data: customers, format: 'magento_customer', message: parseMessage };
 };
