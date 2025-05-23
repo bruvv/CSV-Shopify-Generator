@@ -35,6 +35,8 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [displayMode, setDisplayMode] = useState<'all' | 'errors'>('all');
+  const [currentErrorIndices, setCurrentErrorIndices] = useState<number[]>([]);
+
 
   const formMethods = useForm<ShopifyCustomersFormData>({
     resolver: zodResolver(shopifyCustomersSchema),
@@ -44,73 +46,76 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     mode: 'onChange', 
   });
 
-  const { control, handleSubmit, reset, formState, watch, trigger, getValues } = formMethods;
-  const { errors } = formState; // errors object from react-hook-form
+  const { control, handleSubmit, reset, formState, watch, trigger, getValues, setValue } = formMethods;
+  const { errors } = formState; 
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'customers',
   });
 
-  // const allWatchedCustomers = watch('customers'); // For reactively deriving error indices - replaced by `fields`
-
-  const derivedErrorIndices = useMemo(() => {
-    // Use `fields` from useFieldArray as it's more directly tied to RHF's array state
-    if (!errors.customers || !fields || fields.length === 0) return [];
-    const indices: number[] = [];
-    for (let i = 0; i < fields.length; i++) {
-      // Check if the error object for this customer index exists and has any keys
-      if (errors.customers[i] && Object.keys(errors.customers[i]!).length > 0) {
-        indices.push(i);
+  useEffect(() => {
+    if (formState.errors.customers && fields.length > 0) {
+      const indices: number[] = [];
+      for (let i = 0; i < fields.length; i++) {
+        if (formState.errors.customers[i] && Object.keys(formState.errors.customers[i]!).length > 0) {
+          indices.push(i);
+        }
       }
+      setCurrentErrorIndices(indices);
+    } else {
+      setCurrentErrorIndices([]);
     }
-    return indices;
-  }, [errors.customers, fields]);
+  }, [formState.errors.customers, fields]);
+
 
   useEffect(() => {
-    // If in 'errors' mode and all errors are resolved, switch back to 'all' mode
-    if (displayMode === 'errors' && derivedErrorIndices.length === 0 && fields.length > 0) {
+    // If in 'errors' mode, all errors are resolved, and not currently loading, switch back to 'all' mode
+    if (displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading) {
       setDisplayMode('all');
       toast({ title: "All Errors Fixed!", description: "Displaying all customers." });
-      setCurrentPage(1); // Reset to first page of all items
+      setCurrentPage(1); 
     }
-  }, [displayMode, derivedErrorIndices, fields, toast]); // Added fields to dependency array
+  }, [displayMode, currentErrorIndices, fields, isLoading, toast]);
   
 
   const itemsToPaginate: { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[] = useMemo(() => {
     if (displayMode === 'errors') {
-      return derivedErrorIndices
+      return currentErrorIndices
         .map(originalIndex => {
           const field = fields[originalIndex];
-          // Ensure the field exists, as `fields` might update slightly after `derivedErrorIndices`
           return field ? { field: field as (ShopifyCustomerFormData & {id: string}), originalIndex } : null;
         })
         .filter(item => item !== null) as { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[];
     }
-    // In 'all' mode, map all current fields with their original indices
     return fields.map((field, index) => ({ field: field as (ShopifyCustomerFormData & {id: string}), originalIndex: index }));
-  }, [displayMode, fields, derivedErrorIndices]);
+  }, [displayMode, fields, currentErrorIndices]);
 
 
   const totalItemsForCurrentMode = itemsToPaginate.length;
 
-  // Effect to adjust current page if it becomes out of bounds
   useEffect(() => {
-    if (totalItemsForCurrentMode === 0) {
+    if (totalItemsForCurrentMode === 0 && displayMode === 'all') { // Only reset if no items and in 'all' mode
       setCurrentPage(1);
       return;
     }
+    // If in 'errors' mode and no items, don't reset page, might be transient
+    if (totalItemsForCurrentMode === 0 && displayMode === 'errors') {
+        setCurrentPage(1); // Or handle appropriately, maybe show "no errors" message
+        return;
+    }
+
     const currentActualItemsPerPage = showAll ? (totalItemsForCurrentMode > 0 ? totalItemsForCurrentMode : 1) : itemsPerPage;
     const newTotalPages = totalItemsForCurrentMode === 0 ? 1 : Math.ceil(totalItemsForCurrentMode / currentActualItemsPerPage);
 
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
-  }, [totalItemsForCurrentMode, currentPage, itemsPerPage, showAll]);
+  }, [totalItemsForCurrentMode, currentPage, itemsPerPage, showAll, displayMode]);
 
 
   const addNewCustomer = () => {
-    setDisplayMode('all'); // Switch to show all customers
+    setDisplayMode('all'); 
     
     append({
       id: crypto.randomUUID(),
@@ -133,7 +138,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       note: '',
       taxExempt: false,
     });
-    // Calculate new total pages based on ALL items
     const newTotalAllItems = fields.length + 1; 
     const itemsPerPageForAll = showAll ? (newTotalAllItems > 0 ? newTotalAllItems : 1) : itemsPerPage;
     const newTotalPagesForAll = Math.ceil(newTotalAllItems / itemsPerPageForAll);
@@ -175,6 +179,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     if (file) {
       setIsLoading(true);
       setDisplayMode('all'); // Reset to 'all' mode for new import
+      setCurrentPage(1); // Reset page for new import
 
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -211,22 +216,22 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             
           reset({ customers: newCustomersToSet }); 
           
+          // Allow RHF to process the reset and update formState
           await new Promise(resolve => setTimeout(resolve, 0)); 
 
-          const isValid = await trigger(); 
-          const currentCustomerData = getValues().customers; // RHF internal state may take a moment to sync after reset
-
-          // Calculate tempErrorIndices based on the most recent formState.errors AFTER trigger()
+          const isValid = await trigger(); // Validate all fields
+          
+          // tempErrorIndices calculation based on potentially updated formState.errors
           let tempErrorIndices: number[] = [];
-          if (!isValid && formMethods.formState.errors.customers && currentCustomerData && currentCustomerData.length > 0) {
+          if (!isValid && formMethods.formState.errors.customers) {
             const customerErrors = formMethods.formState.errors.customers;
-            for (let i = 0; i < currentCustomerData.length; i++) {
-                if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
-                    tempErrorIndices.push(i);
-                }
+            const customerArrayLength = newCustomersToSet.length;
+            for (let i = 0; i < customerArrayLength; i++) {
+              if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
+                tempErrorIndices.push(i);
+              }
             }
           }
-
 
           if (tempErrorIndices.length > 0) {
               setDisplayMode('errors');
@@ -236,13 +241,12 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 description: `Displaying ${tempErrorIndices.length} customer(s) with errors. Please review and correct them.`,
                 variant: "destructive",
               });
-          } else { // No specific customer errors, or CSV was valid, or no customers extracted
+          } else { 
                setDisplayMode('all'); 
                setCurrentPage(1);
                if (result.type === 'customers_found' && newCustomersToSet.length > 0 && isValid) {
                  toast({ title: 'CSV Imported Successfully', description: `${newCustomersToSet.length} customer(s) loaded and valid.` });
                } else if (result.type === 'customers_found' && newCustomersToSet.length > 0 && !isValid) {
-                 // This case should ideally be caught by tempErrorIndices.length > 0, but as a fallback:
                  toast({ title: 'Imported with Validation Issues', description: 'Please check the form for highlighted errors. Some issues might not be per-customer.', variant: 'destructive'});
                } else if (result.type === 'no_customers_extracted') {
                  toast({ title: 'Import Note', description: result.message, variant: 'default'});
@@ -260,7 +264,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         } finally {
             setIsLoading(false);
             if (fileInputRef.current) {
-              fileInputRef.current.value = ''; // Reset file input
+              fileInputRef.current.value = ''; 
             }
         }
       };
@@ -270,6 +274,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   
   const handleRemoveCustomer = (originalIndexToRemove: number) => {
     remove(originalIndexToRemove);
+    // No need to manually adjust currentErrorIndices, the useEffect watching formState.errors will handle it.
   };
 
   const handleItemsPerPageChange = (value: string) => {
@@ -298,10 +303,10 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
           </div>
           <p className="text-lg text-muted-foreground">
             Upload uw Magento klanten CSV, bekijk en bewerk gepagineerde vermeldingen, en genereer vervolgens een importeerbaar Shopify klanten CSV-bestand.
-            {displayMode === 'errors' && derivedErrorIndices.length > 0 && (
-                <span className="block mt-2 font-semibold text-destructive">Currently showing {derivedErrorIndices.length} customer(s) with errors.</span>
+            {displayMode === 'errors' && currentErrorIndices.length > 0 && (
+                <span className="block mt-2 font-semibold text-destructive">Currently showing {currentErrorIndices.length} customer(s) with errors.</span>
             )}
-             {displayMode === 'errors' && derivedErrorIndices.length === 0 && fields.length > 0 && (
+             {displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading && (
                 <span className="block mt-2 font-semibold text-green-600">All previously found errors seem to be fixed!</span>
             )}
           </p>
@@ -352,6 +357,12 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {displayMode === 'errors' && currentErrorIndices.length > 0 && (
+                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten ({fields.length})</Button>
+                    )}
+                    {displayMode === 'all' && currentErrorIndices.length > 0 && (
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen klanten met fouten ({currentErrorIndices.length})</Button>
+                    )}
                   </>
                 )}
             </div>
@@ -368,7 +379,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
         {!isLoading && (
           <form onSubmit={handleSubmit(onFormSubmit)}>
-            {itemsToPaginate.length === 0 && displayMode === 'all' && (
+            {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length === 0 && (
                <div className="text-center py-10">
                 <p className="text-xl text-muted-foreground">Nog geen klanten geladen of toegevoegd.</p>
                 <p className="text-sm text-muted-foreground">Klik op "Importeer Klanten CSV" of "Nieuwe Klant Handmatig Toevoegen" om te beginnen.</p>
@@ -380,11 +391,19 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                  <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten</Button>
                </div>
             )}
+             {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length > 0 && currentErrorIndices.length > 0 && (
+                <div className="text-center py-10">
+                    <p className="text-xl text-muted-foreground">Alle klanten zijn verborgen door de huidige filterinstellingen.</p>
+                    <p className="text-sm text-muted-foreground">Mogelijk zijn er geen klanten die voldoen aan de huidige filter of pagina-instelling.</p>
+                    <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen klanten met fouten ({currentErrorIndices.length})</Button>
+                </div>
+            )}
+
 
             {paginatedItemsForRender.map(({ field, originalIndex }) => {
               return (
                 <CustomerEntryForm
-                  key={field.id}
+                  key={field.id} // Use the unique ID from the field itself
                   control={control}
                   index={originalIndex} 
                   remove={() => handleRemoveCustomer(originalIndex)}
