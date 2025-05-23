@@ -1,6 +1,6 @@
 
 import type * as React from 'react';
-import type { Control, UseFieldArrayRemove, FieldErrors } from 'react-hook-form';
+import type { Control, FieldErrors } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,8 +18,8 @@ import type { ShopifyCustomersFormData } from '@/schemas/customer';
 
 interface CustomerEntryFormProps {
   control: Control<ShopifyCustomersFormData>;
-  index: number;
-  remove: UseFieldArrayRemove;
+  index: number; // This is the absolute index in the customers array
+  remove: (index: number) => void;
   errors: FieldErrors<ShopifyCustomersFormData>;
 }
 
@@ -29,6 +29,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
   return (
     <Card className="mb-6 shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
+        {/* Display index relative to the full list, not just current page */}
         <CardTitle className="text-xl font-semibold">Customer #{index + 1}</CardTitle>
         <Button
           type="button"
