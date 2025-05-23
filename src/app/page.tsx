@@ -1,3 +1,4 @@
+
 'use client';
 
 import type React from 'react';
@@ -5,7 +6,7 @@ import { useState, useRef } from 'react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { productsSchema, type ProductsFormData, type ProductFormData } from '@/schemas/product';
-import { generateShopifyCsv, parseShopifyCsv } from '@/lib/shopify-csv';
+import { generateShopifyCsv, parseShopifyCsv, type ParseResult } from '@/lib/shopify-csv';
 import { Button } from '@/components/ui/button';
 import { ProductEntryForm } from '@/components/product-entry-form';
 import { useToast } from '@/hooks/use-toast';
@@ -88,36 +89,44 @@ export default function ShopifyCsvGeneratorPage() {
       reader.onload = (e) => {
         try {
           const csvString = e.target?.result as string;
-          const parsedProducts = parseShopifyCsv(csvString);
-          if (parsedProducts.length > 0) {
-            const newProducts = parsedProducts.map(p => ({
-              id: p.id || crypto.randomUUID(),
-              title: p.title || '',
-              bodyHtml: p.bodyHtml || '',
-              vendor: p.vendor || '',
-              productType: p.productType || '',
-              tags: p.tags || '',
-              published: p.published !== undefined ? p.published : true,
-              price: p.price !== undefined ? p.price : 0,
-              sku: p.sku || '',
-              imageSrc: p.imageSrc || '',
-              inventoryQuantity: p.inventoryQuantity !== undefined ? p.inventoryQuantity : 0,
-              requiresShipping: p.requiresShipping !== undefined ? p.requiresShipping : true,
-              taxable: p.taxable !== undefined ? p.taxable : true,
-              status: p.status || 'active',
-            } as ProductFormData)); // Cast to ensure all fields are present for useFieldArray
-            reset({ products: newProducts }); // Reset form with new products
-            toast({ title: 'CSV Imported', description: `${newProducts.length} products loaded from CSV.` });
-          } else {
-             toast({ title: 'Import Failed', description: 'No valid products found in the CSV or CSV is empty.', variant: 'destructive'});
+          const result: ParseResult = parseShopifyCsv(csvString);
+
+          if (result.type === 'products') {
+            const parsedProducts = result.data;
+            if (parsedProducts.length > 0) {
+              const newProducts = parsedProducts.map(p => ({
+                id: p.id || crypto.randomUUID(),
+                title: p.title || '',
+                bodyHtml: p.bodyHtml || '',
+                vendor: p.vendor || '',
+                productType: p.productType || '',
+                tags: p.tags || '',
+                published: p.published !== undefined ? p.published : true,
+                price: p.price !== undefined ? p.price : 0,
+                sku: p.sku || '',
+                imageSrc: p.imageSrc || '',
+                inventoryQuantity: p.inventoryQuantity !== undefined ? p.inventoryQuantity : 0,
+                requiresShipping: p.requiresShipping !== undefined ? p.requiresShipping : true,
+                taxable: p.taxable !== undefined ? p.taxable : true,
+                status: p.status || 'active',
+              } as ProductFormData));
+              reset({ products: newProducts }); 
+              toast({ title: 'CSV Imported', description: `${newProducts.length} products loaded from CSV.` });
+            } else {
+               toast({ title: 'Import Note', description: 'CSV structure suggests products, but no valid product entries were found.', variant: 'default'});
+            }
+          } else if (result.type === 'customers') {
+            toast({ title: 'Import Info', description: result.message, variant: 'default' });
+          } else if (result.type === 'unknown' || result.type === 'empty') {
+            toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
           }
+
         } catch (error) {
-           console.error("Error parsing CSV:", error);
-           toast({ title: 'Import Failed', description: 'Could not parse the CSV file. Please check the format.', variant: 'destructive'});
+           console.error("Error processing CSV:", error);
+           toast({ title: 'Import Failed', description: 'Could not process the CSV file. Please check the format.', variant: 'destructive'});
         }
       };
       reader.readAsText(file);
-      // Reset file input to allow uploading the same file again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }

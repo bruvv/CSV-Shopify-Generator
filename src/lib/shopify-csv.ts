@@ -1,4 +1,12 @@
+
 import type { ProductFormData } from '@/schemas/product';
+
+export type ParseResult =
+  | { type: 'products'; data: Partial<ProductFormData>[] }
+  | { type: 'customers'; message: string }
+  | { type: 'unknown'; message: string }
+  | { type: 'empty'; message: string };
+
 
 // Helper function to escape CSV fields
 const escapeCsvField = (field: string | number | boolean | undefined | null): string => {
@@ -39,20 +47,7 @@ export const generateShopifyCsv = (products: ProductFormData[]): string => {
     'Variant SKU', 'Variant Grams', 'Variant Inventory Tracker', 'Variant Inventory Qty', 'Variant Inventory Policy',
     'Variant Fulfillment Service', 'Variant Price', 'Variant Compare At Price', 'Variant Requires Shipping',
     'Variant Taxable', 'Variant Barcode', 'Image Src', 'Image Position', 'Image Alt Text', 'Gift Card',
-    'SEO Title', 'SEO Description', 
-    // 'Google Shopping / Google Product Category', // Simplified, add more if needed
-    // 'Google Shopping / Gender',
-    // 'Google Shopping / Age Group',
-    // 'Google Shopping / MPN',
-    // 'Google Shopping / AdWords Grouping',
-    // 'Google Shopping / AdWords Labels',
-    // 'Google Shopping / Condition',
-    // 'Google Shopping / Custom Product',
-    // 'Google Shopping / Custom Label 0',
-    // 'Google Shopping / Custom Label 1',
-    // 'Google Shopping / Custom Label 2',
-    // 'Google Shopping / Custom Label 3',
-    // 'Google Shopping / Custom Label 4',
+    'SEO Title', 'SEO Description',
     'Variant Image', 'Variant Weight Unit', 'Variant Tax Code', 'Cost per item', 'Status'
   ];
 
@@ -89,7 +84,6 @@ export const generateShopifyCsv = (products: ProductFormData[]): string => {
       'FALSE', // Gift Card
       p.title, // SEO Title (default to product title)
       '', // SEO Description (not collected, Shopify can auto-generate from Body (HTML))
-      // ... more google shopping fields (empty for now)
       p.imageSrc, // Variant Image (can be same as Image Src for simple product)
       '', // Variant Weight Unit (not collected, e.g. 'kg')
       '', // Variant Tax Code (not collected)
@@ -102,72 +96,105 @@ export const generateShopifyCsv = (products: ProductFormData[]): string => {
 };
 
 
-// Basic CSV parser
-export const parseShopifyCsv = (csvString: string): Partial<ProductFormData>[] => {
-  const lines = csvString.trim().split('\n');
-  if (lines.length < 2) return []; // Must have header and at least one data row
+// Shopify CSV parser
+export const parseShopifyCsv = (csvString: string): ParseResult => {
+  const trimmedCsvString = csvString.trim();
+  if (!trimmedCsvString) {
+    return { type: 'empty', message: 'The CSV file is empty.' };
+  }
 
+  const lines = trimmedCsvString.split('\n');
+  if (lines.length === 0) {
+     return { type: 'empty', message: 'The CSV file has no lines.' };
+  }
+  
   const headerLine = lines.shift();
-  if (!headerLine) return [];
+  if (!headerLine) {
+    return { type: 'empty', message: 'The CSV file has no header line.' };
+  }
   
   // Basic CSV parsing for headers - handles quotes
-  const headers = headerLine.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(h => h.replace(/^"|"$/g, '').trim()) || [];
+  const headers = headerLine.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(h => h.replace(/^"|"$/g, '').trim().toLowerCase()) || [];
 
-  const products: Partial<ProductFormData>[] = [];
+  if (headers.length === 0) {
+    return { type: 'unknown', message: 'Could not parse headers from the CSV file.' };
+  }
 
   const findHeaderIndex = (aliases: string[]) => {
     for (const alias of aliases) {
-      const index = headers.findIndex(h => h.toLowerCase() === alias.toLowerCase());
+      const index = headers.findIndex(h => h === alias.toLowerCase());
       if (index !== -1) return index;
     }
     return -1;
   }
 
-  // Define common header aliases
-  const titleIdx = findHeaderIndex(['Title']);
-  const bodyHtmlIdx = findHeaderIndex(['Body (HTML)', 'Description']);
-  const vendorIdx = findHeaderIndex(['Vendor']);
-  const productTypeIdx = findHeaderIndex(['Type', 'Product Type']);
-  const tagsIdx = findHeaderIndex(['Tags']);
-  const publishedIdx = findHeaderIndex(['Published']);
-  const priceIdx = findHeaderIndex(['Variant Price', 'Price']);
-  const skuIdx = findHeaderIndex(['Variant SKU', 'SKU']);
-  const imageSrcIdx = findHeaderIndex(['Image Src', 'Image URL']);
-  const inventoryQtyIdx = findHeaderIndex(['Variant Inventory Qty', 'Inventory Quantity', 'Quantity']);
-  const requiresShippingIdx = findHeaderIndex(['Variant Requires Shipping', 'Requires Shipping']);
-  const taxableIdx = findHeaderIndex(['Variant Taxable', 'Taxable']);
-  const statusIdx = findHeaderIndex(['Status']);
+  // Product specific headers
+  const titleIdx = findHeaderIndex(['title']);
+  const priceIdx = findHeaderIndex(['variant price', 'price']);
+  const skuIdx = findHeaderIndex(['variant sku', 'sku']);
+  const handleIdx = findHeaderIndex(['handle']);
+
+  // Customer specific headers
+  const emailIdx = findHeaderIndex(['email']);
+  const firstNameIdx = findHeaderIndex(['first name']);
+  const lastNameIdx = findHeaderIndex(['last name']);
+  const acceptsMarketingIdx = findHeaderIndex(['accepts marketing']);
 
 
-  for (const line of lines) {
-    // Basic CSV parsing for data rows - handles quotes
-    const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
-    if (values.length < headers.length && values.length < 1) continue; // Skip empty or malformed lines
+  const isLikelyProductCSV = titleIdx !== -1 || priceIdx !== -1 || skuIdx !== -1 || handleIdx !== -1;
+  const isLikelyCustomerCSV = emailIdx !== -1 && (firstNameIdx !== -1 || lastNameIdx !== -1 || acceptsMarketingIdx !== -1);
 
-    const product: Partial<ProductFormData> = { id: crypto.randomUUID() };
+  if (isLikelyProductCSV) {
+    const products: Partial<ProductFormData>[] = [];
+    // Define common product header aliases (already done for detection, re-use for parsing)
+    const bodyHtmlIdx = findHeaderIndex(['body (html)', 'description']);
+    const vendorIdx = findHeaderIndex(['vendor']);
+    const productTypeIdx = findHeaderIndex(['type', 'product type']);
+    const tagsIdx = findHeaderIndex(['tags']);
+    const publishedIdx = findHeaderIndex(['published']);
+    const imageSrcIdx = findHeaderIndex(['image src', 'image url']);
+    const inventoryQtyIdx = findHeaderIndex(['variant inventory qty', 'inventory quantity', 'quantity']);
+    const requiresShippingIdx = findHeaderIndex(['variant requires shipping', 'requires shipping']);
+    const taxableIdx = findHeaderIndex(['variant taxable', 'taxable']);
+    const statusIdx = findHeaderIndex(['status']);
 
-    if (titleIdx !== -1 && values[titleIdx]) product.title = values[titleIdx];
-    if (bodyHtmlIdx !== -1) product.bodyHtml = values[bodyHtmlIdx];
-    if (vendorIdx !== -1) product.vendor = values[vendorIdx];
-    if (productTypeIdx !== -1) product.productType = values[productTypeIdx];
-    if (tagsIdx !== -1) product.tags = values[tagsIdx];
-    if (publishedIdx !== -1) product.published = values[publishedIdx]?.toLowerCase() === 'true';
-    if (priceIdx !== -1 && values[priceIdx]) product.price = parseFloat(values[priceIdx]);
-    if (skuIdx !== -1) product.sku = values[skuIdx];
-    if (imageSrcIdx !== -1) product.imageSrc = values[imageSrcIdx];
-    if (inventoryQtyIdx !== -1 && values[inventoryQtyIdx]) product.inventoryQuantity = parseInt(values[inventoryQtyIdx], 10);
-    if (requiresShippingIdx !== -1) product.requiresShipping = values[requiresShippingIdx]?.toLowerCase() === 'true';
-    if (taxableIdx !== -1) product.taxable = values[taxableIdx]?.toLowerCase() === 'true';
-    if (statusIdx !== -1 && ['active', 'draft', 'archived'].includes(values[statusIdx]?.toLowerCase())) {
-      product.status = values[statusIdx].toLowerCase() as 'active' | 'draft' | 'archived';
-    } else {
-      product.status = 'active'; // Default status if not provided or invalid
+    if (lines.length === 0) { // Only header was present
+        return { type: 'products', data: [] }; // Will be handled as "no valid product entries"
     }
-    
-    // Only add if title is present (basic validation)
-    if (product.title) {
-      products.push(product);
+
+    for (const line of lines) {
+      const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || [];
+      if (values.length === 0 || values.every(v => v === '')) continue; // Skip empty or effectively empty lines
+
+      const product: Partial<ProductFormData> = { id: crypto.randomUUID() };
+
+      if (titleIdx !== -1 && values[titleIdx]) product.title = values[titleIdx];
+      if (bodyHtmlIdx !== -1) product.bodyHtml = values[bodyHtmlIdx];
+      if (vendorIdx !== -1) product.vendor = values[vendorIdx];
+      if (productTypeIdx !== -1) product.productType = values[productTypeIdx];
+      if (tagsIdx !== -1) product.tags = values[tagsIdx];
+      if (publishedIdx !== -1) product.published = values[publishedIdx]?.toLowerCase() === 'true';
+      if (priceIdx !== -1 && values[priceIdx]) product.price = parseFloat(values[priceIdx]);
+      if (skuIdx !== -1) product.sku = values[skuIdx];
+      if (imageSrcIdx !== -1) product.imageSrc = values[imageSrcIdx];
+      if (inventoryQtyIdx !== -1 && values[inventoryQtyIdx]) product.inventoryQuantity = parseInt(values[inventoryQtyIdx], 10);
+      if (requiresShippingIdx !== -1) product.requiresShipping = values[requiresShippingIdx]?.toLowerCase() === 'true';
+      if (taxableIdx !== -1) product.taxable = values[taxableIdx]?.toLowerCase() === 'true';
+      if (statusIdx !== -1 && ['active', 'draft', 'archived'].includes(values[statusIdx]?.toLowerCase())) {
+        product.status = values[statusIdx].toLowerCase() as 'active' | 'draft' | 'archived';
+      } else {
+        product.status = 'active'; 
+      }
+      
+      if (product.title || product.sku || handleIdx !== -1 && values[handleIdx]) { // Basic validation: product must have at least one key identifier
+        products.push(product);
+      }
     }
+    return { type: 'products', data: products };
+
+  } else if (isLikelyCustomerCSV) {
+    return { type: 'customers', message: 'This appears to be a customer CSV. This tool is designed for importing Shopify product CSVs. No data was imported.' };
+  } else {
+    return { type: 'unknown', message: 'The CSV format is not recognized. Please ensure it is a Shopify product CSV or a customer CSV if you intended to check its type.' };
   }
-  return products;
 };
