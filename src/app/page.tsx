@@ -2,7 +2,7 @@
 'use client';
 
 import type React from 'react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { shopifyCustomersSchema, type ShopifyCustomersFormData, type ShopifyCustomerFormData } from '@/schemas/customer';
@@ -33,51 +33,84 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [displayMode, setDisplayMode] = useState<'all' | 'errors'>('all');
 
   const formMethods = useForm<ShopifyCustomersFormData>({
     resolver: zodResolver(shopifyCustomersSchema),
     defaultValues: {
       customers: [],
     },
-    mode: 'onChange', // onChange mode is good for immediate feedback, but trigger after load is explicit
+    mode: 'onChange', 
   });
 
   const { control, handleSubmit, reset, formState, watch, trigger, getValues } = formMethods;
-  const { errors } = formState;
+  const { errors } = formState; // errors object from react-hook-form
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'customers',
   });
 
-  const allCustomers = watch('customers'); // Watching for real-time updates
-  const totalItems = fields.length;
+  const allWatchedCustomers = watch('customers'); // For reactively deriving error indices
 
-  // Calculate pagination variables
-  const actualItemsPerPage = showAll ? (totalItems > 0 ? totalItems : 1) : itemsPerPage;
-  const totalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / actualItemsPerPage);
+  const derivedErrorIndices = useMemo(() => {
+    if (!errors.customers || !allWatchedCustomers) return [];
+    const indices: number[] = [];
+    for (let i = 0; i < allWatchedCustomers.length; i++) {
+      // Check if the error object for this customer index exists and has any keys
+      if (errors.customers[i] && Object.keys(errors.customers[i]!).length > 0) {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }, [errors.customers, allWatchedCustomers]);
+
+  useEffect(() => {
+    // If in 'errors' mode and all errors are resolved, switch back to 'all' mode
+    if (displayMode === 'errors' && derivedErrorIndices.length === 0 && fields.length > 0) {
+      setDisplayMode('all');
+      toast({ title: "All Errors Fixed!", description: "Displaying all customers." });
+      setCurrentPage(1); // Reset to first page of all items
+    }
+  }, [displayMode, derivedErrorIndices, fields.length, toast]);
   
-  const startIndex = (currentPage - 1) * actualItemsPerPage;
-  const endIndex = Math.min(startIndex + actualItemsPerPage, totalItems);
-  
-  const paginatedFields = showAll ? fields : fields.slice(startIndex, endIndex);
+
+  const itemsToPaginate: { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[] = useMemo(() => {
+    if (displayMode === 'errors') {
+      return derivedErrorIndices
+        .map(originalIndex => {
+          const field = fields[originalIndex];
+          // Ensure the field exists, as `fields` might update slightly after `derivedErrorIndices`
+          return field ? { field: field as (ShopifyCustomerFormData & {id: string}), originalIndex } : null;
+        })
+        .filter(item => item !== null) as { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[];
+    }
+    // In 'all' mode, map all current fields with their original indices
+    return fields.map((field, index) => ({ field: field as (ShopifyCustomerFormData & {id: string}), originalIndex: index }));
+  }, [displayMode, fields, derivedErrorIndices]);
+
+
+  const totalItemsForCurrentMode = itemsToPaginate.length;
 
   // Effect to adjust current page if it becomes out of bounds
   useEffect(() => {
-    if (totalItems === 0) {
+    if (totalItemsForCurrentMode === 0) {
       setCurrentPage(1);
       return;
     }
-    const currentActualItemsPerPage = showAll ? (totalItems > 0 ? totalItems : 1) : itemsPerPage;
-    const newTotalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / currentActualItemsPerPage);
+    const currentActualItemsPerPage = showAll ? (totalItemsForCurrentMode > 0 ? totalItemsForCurrentMode : 1) : itemsPerPage;
+    const newTotalPages = totalItemsForCurrentMode === 0 ? 1 : Math.ceil(totalItemsForCurrentMode / currentActualItemsPerPage);
 
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
-  }, [totalItems, currentPage, itemsPerPage, showAll]);
+  }, [totalItemsForCurrentMode, currentPage, itemsPerPage, showAll]);
 
 
   const addNewCustomer = () => {
+    setDisplayMode('all'); // Switch to show all customers
+    
     append({
       id: crypto.randomUUID(),
       firstName: '',
@@ -99,10 +132,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       note: '',
       taxExempt: false,
     });
-    const newTotalItems = fields.length + 1;
-    const currentActualItemsPerPageForAdd = showAll ? (newTotalItems > 0 ? newTotalItems : 1) : itemsPerPage;
-    const newTotalPages = Math.ceil(newTotalItems / currentActualItemsPerPageForAdd);
-    setCurrentPage(newTotalPages);
+    // Calculate new total pages based on ALL items
+    const newTotalAllItems = fields.length + 1; 
+    const itemsPerPageForAll = showAll ? (newTotalAllItems > 0 ? newTotalAllItems : 1) : itemsPerPage;
+    const newTotalPagesForAll = Math.ceil(newTotalAllItems / itemsPerPageForAll);
+    setCurrentPage(newTotalPagesForAll);
     toast({ title: "New customer entry added", description: "Fill in the details for the new customer." });
   };
 
@@ -138,104 +172,113 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setIsLoading(true);
+      setDisplayMode('all'); // Reset to 'all' mode for new import
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const csvString = e.target?.result as string;
           const result: ParseCustomerResult = parseMagentoCustomerCsv(csvString);
 
+          let parsedCustomers: Partial<ShopifyCustomerFormData>[] = [];
           if (result.type === 'customers_found') {
-            const parsedCustomers = result.data;
-            const newCustomers = parsedCustomers.map(c => ({
-              id: c.id || crypto.randomUUID(),
-              firstName: c.firstName || '',
-              lastName: c.lastName || '',
-              email: c.email || '',
-              company: c.company || '',
-              address1: c.address1 || '',
-              address2: c.address2 || '',
-              city: c.city || '',
-              province: c.province || '',
-              provinceCode: c.provinceCode || '',
-              country: c.country || '',
-              countryCode: c.countryCode || '',
-              zip: c.zip || '',
-              phone: c.phone || '',
-              acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
-              acceptsSmsMarketing: c.acceptsSmsMarketing !== undefined ? c.acceptsSmsMarketing : false,
-              tags: c.tags || '',
-              note: c.note || '',
-              taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
-            } as ShopifyCustomerFormData));
+            parsedCustomers = result.data;
+          }
+          
+          const newCustomersToSet = parsedCustomers.map(c => ({
+            id: c.id || crypto.randomUUID(),
+            firstName: c.firstName || '',
+            lastName: c.lastName || '',
+            email: c.email || '',
+            company: c.company || '',
+            address1: c.address1 || '',
+            address2: c.address2 || '',
+            city: c.city || '',
+            province: c.province || '',
+            provinceCode: c.provinceCode || '',
+            country: c.country || '',
+            countryCode: c.countryCode || '',
+            zip: c.zip || '',
+            phone: c.phone || '',
+            acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
+            acceptsSmsMarketing: c.acceptsSmsMarketing !== undefined ? c.acceptsSmsMarketing : false,
+            tags: c.tags || '',
+            note: c.note || '',
+            taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
+          } as ShopifyCustomerFormData));
             
-            reset({ customers: newCustomers }); // Populate form
-            
-            // Ensure state updates from reset are processed before trigger and error checking
-            await new Promise(resolve => setTimeout(resolve, 0)); 
+          reset({ customers: newCustomersToSet }); 
+          
+          await new Promise(resolve => setTimeout(resolve, 0)); 
 
-            const isValid = await trigger(); // Validate all fields
+          const isValid = await trigger(); 
+          const currentCustomerData = getValues().customers;
 
-            if (!isValid) {
-              const customerErrors = formState.errors.customers;
-              let firstErrorCustomerIndex = -1;
-              const currentCustomers = getValues().customers; // Get current customer list after reset
-
-              if (customerErrors && Array.isArray(customerErrors) && currentCustomers) {
-                for (let i = 0; i < currentCustomers.length; i++) {
-                  if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
-                    firstErrorCustomerIndex = i;
-                    break;
-                  }
+          if (!isValid && currentCustomerData && currentCustomerData.length > 0) {
+            // derivedErrorIndices will be updated reactively by the useMemo hook
+            // We just need to check if there are any errors to switch the mode.
+            const tempErrorIndices: number[] = [];
+            if (formState.errors.customers && Array.isArray(formState.errors.customers)) {
+                for (let i = 0; i < currentCustomerData.length; i++) {
+                    if (formState.errors.customers[i] && Object.keys(formState.errors.customers[i]!).length > 0) {
+                        tempErrorIndices.push(i);
+                    }
                 }
-              }
-
-              if (firstErrorCustomerIndex !== -1) {
-                const itemsPerPageToUse = showAll ? (currentCustomers.length > 0 ? currentCustomers.length : 1) : itemsPerPage;
-                const errorPage = Math.floor(firstErrorCustomerIndex / itemsPerPageToUse) + 1;
-                setCurrentPage(errorPage);
-                toast({
-                  title: "Validation Errors Found",
-                  description: `Please review customer #${firstErrorCustomerIndex + 1} (and potentially others) for errors. Navigated to their page.`,
-                  variant: "destructive",
-                });
-              } else {
-                 // This case means isValid is false, but we couldn't pinpoint an error in the customers array.
-                 // Could be a root form error or an issue if customers array was empty during check.
-                 toast({ title: 'Imported with Validation Issues', description: 'Please check the form for highlighted errors.', variant: 'destructive'});
-                 setCurrentPage(1); // Default to first page if specific error not found
-              }
-            } else {
-              // Successfully imported and all data is valid
-              setCurrentPage(1);
-              toast({ title: 'CSV Imported Successfully', description: `${newCustomers.length} customer(s) loaded and valid.` });
             }
 
-          } else if (result.type === 'no_customers_extracted') {
-             toast({ title: 'Import Note', description: result.message, variant: 'default'});
-             reset({ customers: [] }); 
-             setCurrentPage(1);
-          } else if (result.type === 'parse_error') {
-            toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
-            reset({ customers: [] });
+            if (tempErrorIndices.length > 0) {
+              setDisplayMode('errors');
+              setCurrentPage(1); // Go to the first page of errors
+              toast({
+                title: "Validation Errors Found",
+                description: `Displaying ${tempErrorIndices.length} customer(s) with errors. Please review and correct them.`,
+                variant: "destructive",
+              });
+            } else { // isValid is false, but no specific customer errors (e.g. root error, or currentData empty)
+               setDisplayMode('all'); // Stay in all mode
+               setCurrentPage(1);
+               if (newCustomersToSet.length > 0) {
+                 toast({ title: 'Imported with Validation Issues', description: 'Please check the form for highlighted errors.', variant: 'destructive'});
+               } else if (result.type === 'no_customers_extracted') {
+                 toast({ title: 'Import Note', description: result.message, variant: 'default'});
+               } else if (result.type === 'parse_error') {
+                toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
+               }
+            }
+          } else { // CSV is valid or no customers to validate after parsing
+            setDisplayMode('all');
             setCurrentPage(1);
+            if (result.type === 'customers_found' && newCustomersToSet.length > 0) {
+              toast({ title: 'CSV Imported Successfully', description: `${newCustomersToSet.length} customer(s) loaded and valid.` });
+            } else if (result.type === 'no_customers_extracted') {
+               toast({ title: 'Import Note', description: result.message, variant: 'default'});
+            } else if (result.type === 'parse_error') {
+              toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
+            } else if (newCustomersToSet.length === 0 && result.type === 'customers_found'){
+              toast({ title: 'Import Note', description: 'CSV parsed, but no customer data extracted.', variant: 'default'});
+            }
           }
 
-        } catch (error) {
-           console.error("Error processing CSV:", error);
+        } catch (errorCatch) {
+           console.error("Error processing CSV:", errorCatch);
+           setDisplayMode('all');
            toast({ title: 'Import Failed', description: 'Could not process the CSV file. Please check the format and content.', variant: 'destructive'});
-           reset({ customers: [] });
-           setCurrentPage(1);
+        } finally {
+            setIsLoading(false);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = ''; // Reset file input
+            }
         }
       };
       reader.readAsText(file);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
   
-  const handleRemoveCustomer = (index: number) => {
-    remove(index);
+  const handleRemoveCustomer = (originalIndexToRemove: number) => {
+    remove(originalIndexToRemove);
+    // Errors and displayMode will update reactively via useMemo and useEffect
+    // Page adjustment will be handled by useEffect watching totalItemsForCurrentMode
   };
 
   const handleItemsPerPageChange = (value: string) => {
@@ -248,6 +291,15 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     setCurrentPage(1); // Reset to first page
   };
 
+  // Calculate pagination variables for rendering
+  const actualItemsPerPage = showAll ? (totalItemsForCurrentMode > 0 ? totalItemsForCurrentMode : 1) : itemsPerPage;
+  const totalPages = totalItemsForCurrentMode === 0 ? 1 : Math.ceil(totalItemsForCurrentMode / actualItemsPerPage);
+  
+  const startIndex = (currentPage - 1) * actualItemsPerPage;
+  // const endIndex = Math.min(startIndex + actualItemsPerPage, totalItemsForCurrentMode); // Not needed if slicing directly
+  
+  const paginatedItemsForRender = itemsToPaginate.slice(startIndex, startIndex + actualItemsPerPage);
+
 
   return (
     <FormProvider {...formMethods}>
@@ -259,13 +311,16 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
           </div>
           <p className="text-lg text-muted-foreground">
             Upload uw Magento klanten CSV, bekijk en bewerk gepagineerde vermeldingen, en genereer vervolgens een importeerbaar Shopify klanten CSV-bestand.
+            {displayMode === 'errors' && derivedErrorIndices.length > 0 && (
+                <span className="block mt-2 font-semibold text-destructive">Currently showing only customers with errors.</span>
+            )}
           </p>
         </header>
 
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-primary">Acties</h2>
             <div className="flex flex-wrap items-center gap-4">
-                <Button onClick={() => fileInputRef.current?.click()} variant="outline">
+                <Button onClick={() => !isLoading && fileInputRef.current?.click()} variant="outline" disabled={isLoading}>
                     <Upload className="mr-2 h-5 w-5" /> Importeer Klanten CSV
                 </Button>
                 <input
@@ -274,20 +329,27 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                     onChange={handleFileUpload}
                     accept=".csv"
                     className="hidden"
+                    disabled={isLoading}
                 />
-                <Button onClick={addNewCustomer} variant="default">
+                <Button onClick={addNewCustomer} variant="default" disabled={isLoading}>
                     <PlusCircle className="mr-2 h-5 w-5" /> Nieuwe Klant Handmatig Toevoegen
                 </Button>
-                <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Button 
+                    onClick={handleSubmit(onFormSubmit)} 
+                    variant="secondary" 
+                    className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                    disabled={isLoading || fields.length === 0}
+                >
                     <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify CSV
                 </Button>
-                 {fields.length > 0 && (
+                 {(fields.length > 0 || (displayMode === 'errors' && derivedErrorIndices.length > 0)) && !isLoading && (
                   <>
                     <div className="flex items-center space-x-2">
                       <Label htmlFor="items-per-page-select" className="text-sm font-medium">Totaal klanten per pagina:</Label>
                       <Select
                         value={showAll ? 'all' : String(itemsPerPage)}
                         onValueChange={handleItemsPerPageChange}
+                        disabled={isLoading}
                       >
                         <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
                           <SelectValue placeholder="Aantal" />
@@ -307,36 +369,51 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         
         <Separator className="my-8" />
 
-        <form onSubmit={handleSubmit(onFormSubmit)}>
-          {fields.length === 0 && (
-             <div className="text-center py-10">
-              <p className="text-xl text-muted-foreground">Nog geen klanten geladen of toegevoegd.</p>
-              <p className="text-sm text-muted-foreground">Klik op "Importeer Klanten CSV" of "Nieuwe Klant Handmatig Toevoegen" om te beginnen.</p>
-            </div>
-          )}
+        {isLoading && (
+          <div className="text-center py-10">
+            <RefreshCw className="h-10 w-10 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-xl text-muted-foreground">Processing CSV, please wait...</p>
+          </div>
+        )}
 
-          {paginatedFields.map((field, localIndex) => {
-            const originalIndex = startIndex + localIndex;
-            return (
-              <CustomerEntryForm
-                key={field.id}
-                control={control}
-                index={originalIndex}
-                remove={() => handleRemoveCustomer(originalIndex)}
-                errors={errors}
+        {!isLoading && (
+          <form onSubmit={handleSubmit(onFormSubmit)}>
+            {itemsToPaginate.length === 0 && displayMode === 'all' && (
+               <div className="text-center py-10">
+                <p className="text-xl text-muted-foreground">Nog geen klanten geladen of toegevoegd.</p>
+                <p className="text-sm text-muted-foreground">Klik op "Importeer Klanten CSV" of "Nieuwe Klant Handmatig Toevoegen" om te beginnen.</p>
+              </div>
+            )}
+            {itemsToPaginate.length === 0 && displayMode === 'errors' && (
+                 <div className="text-center py-10">
+                 <p className="text-xl text-muted-foreground">Geen klanten met validatiefouten gevonden.</p>
+                 <Button onClick={() => setDisplayMode('all')} variant="link">Toon alle klanten</Button>
+               </div>
+            )}
+
+            {paginatedItemsForRender.map(({ field, originalIndex }) => {
+              return (
+                <CustomerEntryForm
+                  key={field.id}
+                  control={control}
+                  index={originalIndex} // Use originalIndex for react-hook-form
+                  remove={() => handleRemoveCustomer(originalIndex)}
+                  errors={errors} // Pass all errors; CustomerEntryForm will pick the relevant ones
+                />
+              );
+            })}
+
+            {totalPages > 1 && (
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
               />
-            );
-          })}
-
-          {totalPages > 1 && (
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
-        </form>
+            )}
+          </form>
+        )}
       </div>
     </FormProvider>
   );
 }
+    
