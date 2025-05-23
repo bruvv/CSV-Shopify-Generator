@@ -52,6 +52,11 @@ const parseCsvLine = (line: string, delimiter: ',' | ';'): string[] => {
   return (line.match(regex) || []).map(v => v.replace(/^"|"$/g, '').trim());
 };
 
+// Helper function to escape string for regex constructor
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
 export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult => {
   const trimmedCsvString = csvString.trim();
   if (!trimmedCsvString) return { type: 'parse_error', message: 'The CSV file is empty.' };
@@ -61,14 +66,14 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
   let headerLine: string | undefined;
   let actualHeaderRowIndex = -1;
-  const potentialHeaderKeywords = ['email', 'firstname', 'lastname', 'company_name', 'company_address', 'contact_phone', 'land', 'plaats', 'postcode'];
+  const potentialHeaderKeywords = ['email', 'firstname', 'lastname', 'company_address', 'company_name', 'contact_phone', 'land', 'plaats', 'postcode'];
   
-  for (let i = 0; i < Math.min(allLines.length, 5); i++) {
+  for (let i = 0; i < Math.min(allLines.length, 10); i++) { // Check more lines for header
     const currentLine = allLines[i];
     if (!currentLine.trim()) continue;
 
     const tempDelimiter = detectDelimiter(currentLine);
-    const parsedAsHeader = parseCsvLine(currentLine, tempDelimiter).map(h => h.toLowerCase().trim());
+    const parsedAsHeader = parseCsvLine(currentLine, tempDelimiter).map(h => h.toLowerCase().trim().replace(/^"+|"+$/g, '')); // Also strip quotes from headers
     
     let keywordFoundCount = 0;
     for (const keyword of potentialHeaderKeywords) {
@@ -76,7 +81,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
         keywordFoundCount++;
       }
     }
-
+    
     if (keywordFoundCount >= 2 || parsedAsHeader.includes('email')) {
       headerLine = currentLine;
       actualHeaderRowIndex = i;
@@ -89,9 +94,9 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   }
 
   const dataLines = allLines.slice(actualHeaderRowIndex + 1);
-  const delimiter = detectDelimiter(headerLine); // Use delimiter from the identified header
+  const delimiter = detectDelimiter(headerLine); 
   const rawHeaders = parseCsvLine(headerLine, delimiter);
-  const headers = rawHeaders.map(h => h.toLowerCase().trim());
+  const headers = rawHeaders.map(h => h.toLowerCase().trim().replace(/^"+|"+$/g, '')); // Also strip quotes from headers
 
   if (headers.length === 0) return { type: 'parse_error', message: 'Could not parse headers from the identified header row.' };
 
@@ -137,49 +142,78 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     if (line.trim() === '') continue;
     const values = parseCsvLine(line, delimiter);
     if (values.length === 0 || values.every(v => v === '')) continue;
-    if (values.length < headers.length && values.length < 3) continue; // Likely malformed line if too few values
+    if (values.length < headers.length && values.length < 3) continue; 
 
     const customer: Partial<ShopifyCustomerFormData> = { id: crypto.randomUUID() };
 
-    if (emailIdx !== -1) customer.email = values[emailIdx];
+    if (emailIdx !== -1) customer.email = values[emailIdx]?.trim();
     
-    let fName = firstnameIdx !== -1 ? values[firstnameIdx] : '';
-    let lName = lastnameIdx !== -1 ? values[lastnameIdx] : '';
+    const rawFirstNameFromColumn = firstnameIdx !== -1 ? values[firstnameIdx]?.trim() : '';
+    const rawLastNameFromColumn = lastnameIdx !== -1 ? values[lastnameIdx]?.trim() : '';
+    const rawContactPerson = contactPersonIdx !== -1 ? values[contactPersonIdx]?.trim() : '';
 
-    if (!fName && contactPersonIdx !== -1 && values[contactPersonIdx]) {
-      const contactPersonParts = values[contactPersonIdx].split(/\s+/);
-      fName = contactPersonParts.shift() || '';
-      if (!lName && contactPersonParts.length > 0) {
-        lName = contactPersonParts.join(' ');
-      }
+    let finalFirstName = '';
+    let finalLastName = '';
+
+    // 1. Prioritize lastname column for finalLastName
+    if (rawLastNameFromColumn) {
+        finalLastName = rawLastNameFromColumn;
     }
-    customer.firstName = fName;
-    customer.lastName = lName;
 
-    if (companyNameIdx !== -1) customer.company = values[companyNameIdx];
-    if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx];
-    if (address2Idx !== -1) customer.address2 = values[address2Idx];
-    if (cityIdx !== -1) customer.city = values[cityIdx];
-    if (postcodeIdx !== -1) customer.zip = values[postcodeIdx];
-    
-    if (countryIdx !== -1 && values[countryIdx]) {
-        customer.country = values[countryIdx];
-        if (values[countryIdx]?.length === 2 && values[countryIdx] === values[countryIdx]?.toUpperCase()) {
-            customer.countryCode = values[countryIdx];
+    // 2. Attempt to derive firstName from contact_person using finalLastName
+    if (rawContactPerson && finalLastName) {
+        const potentialFirstName = rawContactPerson.replace(new RegExp(`\\s*${escapeRegExp(finalLastName)}$`, 'i'), '').trim();
+        if (potentialFirstName && potentialFirstName.toLowerCase() !== rawContactPerson.toLowerCase()) { 
+            finalFirstName = potentialFirstName;
         }
     }
-    if (provinceIdx !== -1) customer.province = values[provinceIdx];
-    if (provinceCodeIdx !== -1) customer.provinceCode = values[provinceCodeIdx];
 
-    if (contactPhoneIdx !== -1) customer.phone = values[contactPhoneIdx];
-    if (notesIdx !== -1) customer.note = values[notesIdx];
+    // 3. If firstName could not be derived (still empty) AND contact_person exists, split contact_person
+    if (!finalFirstName && rawContactPerson) {
+        const contactParts = rawContactPerson.split(/\s+/);
+        if (contactParts.length > 0) {
+            finalFirstName = contactParts.shift()!;
+            // Only set lastName from here if not already set by the 'lastname' column
+            if (!finalLastName && contactParts.length > 0) { 
+                finalLastName = contactParts.join(' ');
+            }
+        }
+    }
+
+    // 4. If firstName is still empty, use the value from firstname column as a last resort.
+    if (!finalFirstName && rawFirstNameFromColumn) {
+        finalFirstName = rawFirstNameFromColumn;
+    }
+
+    customer.firstName = finalFirstName;
+    customer.lastName = finalLastName;
+
+
+    if (companyNameIdx !== -1) customer.company = values[companyNameIdx]?.trim();
+    if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx]?.trim();
+    if (address2Idx !== -1) customer.address2 = values[address2Idx]?.trim();
+    if (cityIdx !== -1) customer.city = values[cityIdx]?.trim();
+    if (postcodeIdx !== -1) customer.zip = values[postcodeIdx]?.trim();
+    
+    if (countryIdx !== -1 && values[countryIdx]) {
+        const countryValue = values[countryIdx].trim();
+        customer.country = countryValue;
+        if (countryValue?.length === 2 && countryValue === countryValue?.toUpperCase()) {
+            customer.countryCode = countryValue;
+        }
+    }
+    if (provinceIdx !== -1) customer.province = values[provinceIdx]?.trim();
+    if (provinceCodeIdx !== -1) customer.provinceCode = values[provinceCodeIdx]?.trim();
+
+    if (contactPhoneIdx !== -1) customer.phone = values[contactPhoneIdx]?.trim();
+    if (notesIdx !== -1) customer.note = values[notesIdx]?.trim();
 
     let tagsArray: string[] = [];
-    if (websiteIdx !== -1 && values[websiteIdx]) tagsArray.push(`magento_website:${values[websiteIdx]}`);
-    if (storeIdx !== -1 && values[storeIdx]) tagsArray.push(`magento_store:${values[storeIdx]}`);
-    if (groupIdIdx !== -1 && values[groupIdIdx]) tagsArray.push(`magento_group_id:${values[groupIdIdx]}`);
-    if (createdAtIdx !== -1 && values[createdAtIdx]) tagsArray.push(`magento_created_at:${values[createdAtIdx]}`);
-    if (vatNumberIdx !== -1 && values[vatNumberIdx]) tagsArray.push(`magento_vat_number:${values[vatNumberIdx]}`);
+    if (websiteIdx !== -1 && values[websiteIdx]?.trim()) tagsArray.push(`magento_website:${values[websiteIdx].trim()}`);
+    if (storeIdx !== -1 && values[storeIdx]?.trim()) tagsArray.push(`magento_store:${values[storeIdx].trim()}`);
+    if (groupIdIdx !== -1 && values[groupIdIdx]?.trim()) tagsArray.push(`magento_group_id:${values[groupIdIdx].trim()}`);
+    if (createdAtIdx !== -1 && values[createdAtIdx]?.trim()) tagsArray.push(`magento_created_at:${values[createdAtIdx].trim()}`);
+    if (vatNumberIdx !== -1 && values[vatNumberIdx]?.trim()) tagsArray.push(`magento_vat_number:${values[vatNumberIdx].trim()}`);
     
     customer.tags = tagsArray.filter(tag => tag.split(':')[1]?.trim()).join(', ');
 
@@ -195,9 +229,10 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   if (customers.length > 0) {
     return { type: 'customers_found', data: customers, message: `${customers.length} customer(s) loaded from the CSV. Review and edit if needed.` };
   } else {
-    if (mappableHeadersFound || headers.length > 0) { // Check if headers were found but no data
+    if (mappableHeadersFound || headers.length > 0) { 
          return { type: 'no_customers_extracted', message: 'CSV headers were recognized, but no valid customer data rows could be extracted. Check if rows have essential info like email or names, and ensure data aligns with headers.' };
     }
     return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
   }
 };
+
