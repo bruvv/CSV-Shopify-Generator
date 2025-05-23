@@ -29,6 +29,7 @@ export function PaginationControls({ currentPage, totalPages, onPageChange }: Pa
   return (
     <div className="flex items-center justify-center space-x-4 my-8">
       <Button
+        type="button"
         variant="outline"
         onClick={handlePrevious}
         disabled={currentPage === 1}
@@ -41,6 +42,7 @@ export function PaginationControls({ currentPage, totalPages, onPageChange }: Pa
         Page {currentPage} of {totalPages}
       </span>
       <Button
+        type="button"
         variant="outline"
         onClick={handleNext}
         disabled={currentPage === totalPages}
