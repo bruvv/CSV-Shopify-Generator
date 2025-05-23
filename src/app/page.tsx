@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, SearchCheck } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, MailPlus, MailMinus } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -310,7 +310,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
           customer.firstName, customer.lastName, customer.email,
           customer.company, customer.address1, customer.address2,
           customer.city, customer.province, customer.country,
-          customer.zip, customer.phone, customer.tags, customer.note
+          customer.zip, customer.phone, customer.note
         ];
         if (searchableFields.some(field => typeof field === 'string' && field && testRegex.test(field))) {
           indices.push(index);
