@@ -1,5 +1,18 @@
-# Firebase Studio
+# CSV Shopify Generator
 
-This is a NextJS starter in Firebase Studio.
+## Core Features
 
-To get started, take a look at src/app/page.tsx.
+- Generate CSV files for Shopify customers and products.
+- Simple web interface for data entry.
+- Supports entering multiple entries at once.
+
+## Style Guidelines
+
+- Uses ShadCN UI components.
+- Follows standard NextJS project structure.
+- TypeScript is used throughout the project.
+
+## Getting Started
+
+1.  **Clone the repository:**
+
