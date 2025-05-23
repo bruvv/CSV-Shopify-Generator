@@ -13,7 +13,7 @@ import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
+// Removed Image import as it's no longer used for the placeholder
 import {
   Select,
   SelectContent,
@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 
 
 const PAGE_OPTIONS = [5, 20, 50, 100];
-const HINT_OPTIONS = ["data illustration", "friendly robot", "abstract design", "task complete", "customer focus", "empty results", "data visualization", "user profile"];
+// Removed HINT_OPTIONS as it's no longer used
 
 export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
@@ -33,8 +33,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
-  const [randomImageHint, setRandomImageHint] = useState('empty state');
-  const [randomPlaceholderUrl, setRandomPlaceholderUrl] = useState('https://placehold.co/300x200.png');
+  // Removed randomImageHint and randomPlaceholderUrl states as they are no longer used
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -79,15 +78,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
 
-  // Effect to set random image hint and placeholder URL on mount
-  useEffect(() => {
-    setRandomImageHint(HINT_OPTIONS[Math.floor(Math.random() * HINT_OPTIONS.length)]);
-    
-    const randomHexColor = () => Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-    const bgColor = randomHexColor();
-    const textColor = randomHexColor();
-    setRandomPlaceholderUrl(`https://placehold.co/300x200/${bgColor}/${textColor}.png`);
-  }, []);
+  // Removed useEffect for setting random image hint and placeholder URL as it's no longer used
 
 
   const addNewCustomer = () => {
@@ -248,23 +239,25 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify CSV
                 </Button>
-                 <div className="flex items-center space-x-2">
-                  <Label htmlFor="items-per-page-select" className="text-sm font-medium">Show:</Label>
-                  <Select
-                    value={showAll ? 'all' : String(itemsPerPage)}
-                    onValueChange={handleItemsPerPageChange}
-                  >
-                    <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
-                      <SelectValue placeholder="Count" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAGE_OPTIONS.map(option => (
-                        <SelectItem key={option} value={String(option)}>{option}</SelectItem>
-                      ))}
-                      <SelectItem value="all">All</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                 {fields.length > 0 && (
+                   <div className="flex items-center space-x-2">
+                    <Label htmlFor="items-per-page-select" className="text-sm font-medium">Show:</Label>
+                    <Select
+                      value={showAll ? 'all' : String(itemsPerPage)}
+                      onValueChange={handleItemsPerPageChange}
+                    >
+                      <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
+                        <SelectValue placeholder="Count" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_OPTIONS.map(option => (
+                          <SelectItem key={option} value={String(option)}>{option}</SelectItem>
+                        ))}
+                        <SelectItem value="all">All</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                 )}
             </div>
         </div>
         
@@ -273,7 +266,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              <Image src={randomPlaceholderUrl} alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint={randomImageHint} />
+              {/* Removed Image component and related text */}
               <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
               <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
             </div>
