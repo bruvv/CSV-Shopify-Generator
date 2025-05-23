@@ -15,7 +15,7 @@ import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 1; // Changed to 1 to force pagination with few items
 
 export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
