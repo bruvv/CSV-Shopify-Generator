@@ -16,7 +16,8 @@ export const shopifyCustomerSchema = z.object({
   countryCode: z.string().optional().default(''), // e.g., US
   zip: z.string().optional().default(''), // Postal Code
   phone: z.string().optional().default(''),
-  acceptsMarketing: z.boolean().default(false),
+  acceptsMarketing: z.boolean().default(false), // Corresponds to Accepts Email Marketing
+  acceptsSmsMarketing: z.boolean().default(false),
   tags: z.string().optional().default(''), // comma-separated
   note: z.string().optional().default(''),
   taxExempt: z.boolean().default(false),
@@ -29,3 +30,4 @@ export const shopifyCustomersSchema = z.object({
 });
 
 export type ShopifyCustomersFormData = z.infer<typeof shopifyCustomersSchema>;
+

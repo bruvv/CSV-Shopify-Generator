@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, MailPlus, MailMinus } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -32,7 +32,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
-  const [allCurrentlySubscribed, setAllCurrentlySubscribed] = useState<boolean>(false);
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -43,7 +42,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     mode: 'onChange',
   });
 
-  const { control, handleSubmit, reset, formState: { errors }, watch, setValue } = formMethods;
+  const { control, handleSubmit, reset, formState: { errors }, watch } = formMethods;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -68,7 +67,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setCurrentPage(1);
       return;
     }
-    // Recalculate actualItemsPerPage and totalPages based on current state for this effect
     const currentActualItemsPerPage = showAll ? (totalItems > 0 ? totalItems : 1) : itemsPerPage;
     const newTotalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / currentActualItemsPerPage);
 
@@ -76,16 +74,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
-
-  // Effect to update allCurrentlySubscribed state
-  useEffect(() => {
-    if (allCustomers.length > 0) {
-      const allAreSubscribed = allCustomers.every(customer => customer.acceptsMarketing);
-      setAllCurrentlySubscribed(allAreSubscribed);
-    } else {
-      setAllCurrentlySubscribed(false); // Default if no customers
-    }
-  }, [allCustomers]);
 
 
   const addNewCustomer = () => {
@@ -105,11 +93,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       zip: '',
       phone: '',
       acceptsMarketing: false,
+      acceptsSmsMarketing: false,
       tags: '',
       note: '',
       taxExempt: false,
     });
-    // Go to the page where the new customer will be visible
     const newTotalItems = fields.length + 1;
     const currentActualItemsPerPageForAdd = showAll ? (newTotalItems > 0 ? newTotalItems : 1) : itemsPerPage;
     const newTotalPages = Math.ceil(newTotalItems / currentActualItemsPerPageForAdd);
@@ -173,6 +161,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
               zip: c.zip || '',
               phone: c.phone || '',
               acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
+              acceptsSmsMarketing: c.acceptsSmsMarketing !== undefined ? c.acceptsSmsMarketing : false,
               tags: c.tags || '',
               note: c.note || '',
               taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
@@ -214,27 +203,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     setCurrentPage(1); // Reset to first page
   };
 
-  const handleToggleAllSubscriptions = () => {
-    if (allCustomers.length === 0) {
-      toast({
-        title: 'No Customers to Update',
-        description: 'There are no customers loaded to update their newsletter subscription.',
-        variant: 'default',
-      });
-      return;
-    }
-
-    const targetSubscriptionStatus = !allCurrentlySubscribed;
-    allCustomers.forEach((_, index) => {
-      setValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldDirty: true, shouldValidate: true });
-    });
-    
-    toast({
-      title: targetSubscriptionStatus ? 'All Customers Subscribed' : 'All Customers Unsubscribed',
-      description: `All customers have been set to "${targetSubscriptionStatus ? 'Accepts Marketing' : 'Does Not Accept Marketing'}".`,
-    });
-  };
-
 
   return (
     <FormProvider {...formMethods}>
@@ -242,18 +210,18 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <header className="mb-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <RefreshCw className="h-12 w-12 text-primary mr-3" />
-            <h1 className="text-4xl font-bold text-primary">Magento to Shopify Customer CSV Converter</h1>
+            <h1 className="text-4xl font-bold text-primary">Magento naar Shopify Klanten CSV Converter</h1>
           </div>
           <p className="text-lg text-muted-foreground">
-            Upload your Magento customer CSV, review and edit paginated entries, then generate an importable Shopify customer CSV file.
+            Upload uw Magento klanten CSV, bekijk en bewerk gepagineerde vermeldingen, en genereer vervolgens een importeerbaar Shopify klanten CSV-bestand.
           </p>
         </header>
 
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-4 text-primary">Actions</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-primary">Acties</h2>
             <div className="flex flex-wrap items-center gap-4">
                 <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-                    <Upload className="mr-2 h-5 w-5" /> Import Customer CSV
+                    <Upload className="mr-2 h-5 w-5" /> Importeer Klanten CSV
                 </Button>
                 <input
                     type="file"
@@ -263,35 +231,27 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                     className="hidden"
                 />
                 <Button onClick={addNewCustomer} variant="default">
-                    <PlusCircle className="mr-2 h-5 w-5" /> Add New Customer Manually
+                    <PlusCircle className="mr-2 h-5 w-5" /> Nieuwe Klant Handmatig Toevoegen
                 </Button>
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                    <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify CSV
+                    <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify CSV
                 </Button>
                 {fields.length > 0 && (
                   <>
-                    <Button
-                      onClick={handleToggleAllSubscriptions}
-                      variant={allCurrentlySubscribed ? "secondary" : "outline"}
-                      className={allCurrentlySubscribed ? "bg-accent hover:bg-accent/90 text-accent-foreground" : ""}
-                    >
-                      {allCurrentlySubscribed ? <MailMinus className="mr-2 h-5 w-5" /> : <MailPlus className="mr-2 h-5 w-5" />}
-                      {allCurrentlySubscribed ? 'Unsubscribe All from Newsletter' : 'Subscribe All to Newsletter'}
-                    </Button>
                     <div className="flex items-center space-x-2">
-                      <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total customers per page:</Label>
+                      <Label htmlFor="items-per-page-select" className="text-sm font-medium">Totaal klanten per pagina:</Label>
                       <Select
                         value={showAll ? 'all' : String(itemsPerPage)}
                         onValueChange={handleItemsPerPageChange}
                       >
                         <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
-                          <SelectValue placeholder="Count" />
+                          <SelectValue placeholder="Aantal" />
                         </SelectTrigger>
                         <SelectContent>
                           {PAGE_OPTIONS.map(option => (
                             <SelectItem key={option} value={String(option)}>{option}</SelectItem>
                           ))}
-                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="all">Alles</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -305,8 +265,8 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
-              <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
+              <p className="text-xl text-muted-foreground">Nog geen klanten geladen of toegevoegd.</p>
+              <p className="text-sm text-muted-foreground">Klik op "Importeer Klanten CSV" of "Nieuwe Klant Handmatig Toevoegen" om te beginnen.</p>
             </div>
           )}
 

@@ -28,15 +28,30 @@ const arrayToCsv = (headers: string[], data: (string | number | boolean | undefi
 
 export const generateShopifyCustomerCsv = (customers: ShopifyCustomerFormData[]): string => {
   const headers = [
-    'First Name', 'Last Name', 'Email', 'Company', 'Address1', 'Address2', 'City', 'Province',
-    'Province Code', 'Country', 'Country Code', 'Zip', 'Phone', 'Accepts Marketing', 'Tags',
-    'Note', 'Tax Exempt'
+    'First Name', 'Last Name', 'Email', 'Accepts Email Marketing', 'Default Address Company', 
+    'Default Address Address1', 'Default Address Address2', 'Default Address City', 
+    'Default Address Province Code', 'Default Address Country Code', 'Default Address Zip', 
+    'Default Address Phone', 'Phone', 'Accepts SMS Marketing', 'Tags', 'Note', 'Tax Exempt'
   ];
 
   const csvData = customers.map(c => [
-    c.firstName, c.lastName, c.email, c.company, c.address1, c.address2, c.city, c.province,
-    c.provinceCode, c.country, c.countryCode, c.zip, c.phone, c.acceptsMarketing ? 'yes' : 'no', c.tags,
-    c.note, c.taxExempt ? 'yes' : 'no'
+    c.firstName, 
+    c.lastName, 
+    c.email, 
+    c.acceptsMarketing ? 'yes' : 'no', // Mapped from c.acceptsMarketing
+    c.company, 
+    c.address1, 
+    c.address2, 
+    c.city, 
+    c.provinceCode, 
+    c.countryCode, 
+    c.zip, 
+    c.phone, // For "Default Address Phone"
+    c.phone, // For "Phone"
+    c.acceptsSmsMarketing ? 'yes' : 'no',
+    c.tags,
+    c.note, 
+    c.taxExempt ? 'yes' : 'no'
   ]);
 
   return arrayToCsv(headers, csvData);
@@ -76,21 +91,7 @@ const parseCsvLine = (line: string, delimiter: ',' | ';'): string[] => {
     }
   }
   result.push(currentValue); // Add the last field
-
-  // Trim fields and handle cases where fields might still be surrounded by quotes
-  // if the line doesn't perfectly adhere to strict CSV quoting (e.g. unescaped quotes not at start/end)
-  return result.map(field => {
-    const trimmedField = field.trim();
-    // Only remove surrounding quotes if they exist and are not part of an escaped quote sequence
-    // This check is simplified; proper unquoting is complex if quotes can be anywhere.
-    // The main logic above should handle most standard CSV cases.
-    if (trimmedField.startsWith('"') && trimmedField.endsWith('"')) {
-        // Further check to ensure it's not like """field""" which should be "field"
-        // This part is tricky without full state. The current parser aims to build field content correctly.
-        // Let's assume the field content built is mostly correct and final trim is sufficient.
-    }
-    return trimmedField;
-  });
+  return result.map(field => field.trim());
 };
 
 
@@ -128,8 +129,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
       }
     }
     
-    // Prioritize 'email' and require at least one other keyword, or multiple keywords.
-    if (parsedAsHeader.includes('email') && keywordFoundCount >=1 || keywordFoundCount >= 3) {
+    if (parsedAsHeader.includes('email') || keywordFoundCount >= 3) {
       headerLine = currentLine;
       actualHeaderRowIndex = i;
       break;
@@ -147,7 +147,6 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   const headers = rawHeaders.map((h, idx) => {
     let cleanH = h.toLowerCase().trim();
     if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); // Remove BOM
-    // Remove surrounding quotes from header names if parseCsvLine didn't fully handle it
     if (cleanH.startsWith('"') && cleanH.endsWith('"')) {
         cleanH = cleanH.substring(1, cleanH.length - 1);
     }
@@ -197,38 +196,40 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   for (const line of dataLines) {
     if (line.trim() === '') continue;
     const values = parseCsvLine(line, delimiter);
+    
     if (values.length !== headers.length && line.trim() !== '') {
-        // If column count mismatch, this line might be problematic, skip or log
         console.warn(`Column count mismatch: Expected ${headers.length}, got ${values.length}. Line: "${line}"`);
         continue; 
     }
     if (values.length === 0 || values.every(v => v === '')) continue;
-    if (values.length < 3 && values.length < headers.length) continue; // Heuristic to skip very short/empty lines
 
-    const customer: Partial<ShopifyCustomerFormData> = { id: crypto.randomUUID() };
+    const customer: Partial<ShopifyCustomerFormData> = { 
+      id: crypto.randomUUID(),
+      acceptsSmsMarketing: false, // Default for new field
+    };
 
-    if (emailIdx !== -1) customer.email = values[emailIdx]; // Already trimmed by parseCsvLine
+    if (emailIdx !== -1) customer.email = values[emailIdx];
     
-    const rawFirstNameFromColumn = firstnameIdx !== -1 ? values[firstnameIdx] : '';
-    const rawLastNameFromColumn = lastnameIdx !== -1 ? values[lastnameIdx] : '';
-    const rawContactPerson = contactPersonIdx !== -1 ? values[contactPersonIdx] : '';
+    const magentoFirstName = firstnameIdx !== -1 ? values[firstnameIdx] : '';
+    const magentoLastName = lastnameIdx !== -1 ? values[lastnameIdx] : '';
+    const magentoContactPerson = contactPersonIdx !== -1 ? values[contactPersonIdx] : '';
 
     let finalFirstName = '';
     let finalLastName = '';
 
-    if (rawLastNameFromColumn) {
-        finalLastName = rawLastNameFromColumn;
+    if (magentoLastName) {
+        finalLastName = magentoLastName;
     }
 
-    if (rawContactPerson && finalLastName && rawContactPerson.toLowerCase().includes(finalLastName.toLowerCase())) {
-        const potentialFirstName = rawContactPerson.replace(new RegExp(`\\s*${escapeRegExp(finalLastName)}$`, 'i'), '').trim();
-        if (potentialFirstName && potentialFirstName.toLowerCase() !== rawContactPerson.toLowerCase()) { 
+    if (finalLastName && magentoContactPerson) {
+        const potentialFirstName = magentoContactPerson.replace(new RegExp(`\\s*${escapeRegExp(finalLastName)}${escapeRegExp(finalLastName.endsWith(',') ? '' : ',?')}\\s*`, 'i'), '').trim();
+        if (potentialFirstName && potentialFirstName.toLowerCase() !== magentoContactPerson.toLowerCase()) {
             finalFirstName = potentialFirstName;
         }
     }
     
-    if (!finalFirstName && rawContactPerson) {
-        const contactParts = rawContactPerson.split(/\s+/);
+    if (!finalFirstName && magentoContactPerson) {
+        const contactParts = magentoContactPerson.split(/\s+/);
         if (contactParts.length > 0) {
             finalFirstName = contactParts.shift()!;
             if (!finalLastName && contactParts.length > 0) { 
@@ -237,12 +238,13 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
         }
     }
 
-    if (!finalFirstName && rawFirstNameFromColumn) {
-        finalFirstName = rawFirstNameFromColumn;
+    if (!finalFirstName && magentoFirstName) {
+        finalFirstName = magentoFirstName;
     }
-
+    
     customer.firstName = finalFirstName;
     customer.lastName = finalLastName;
+
 
     if (companyNameIdx !== -1) customer.company = values[companyNameIdx];
     if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx];
@@ -289,3 +291,4 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
   }
 };
+

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, User, Mail, Building, MapPin, Phone, Tag, FileText, Percent } from 'lucide-react';
+import { Trash2, User, Mail, Building, MapPin, Phone, Tag, FileText, Percent, MessageSquare } from 'lucide-react';
 import type { ShopifyCustomersFormData } from '@/schemas/customer';
 
 interface CustomerEntryFormProps {
@@ -29,8 +29,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
   return (
     <Card className="mb-6 shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
-        {/* Display index relative to the full list, not just current page */}
-        <CardTitle className="text-xl font-semibold">Customer #{index + 1}</CardTitle>
+        <CardTitle className="text-xl font-semibold">Klant #{index + 1}</CardTitle>
         <Button
           type="button"
           variant="destructive"
@@ -48,7 +47,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.firstName`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />First Name</FormLabel>
+                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Voornaam</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. Jan" {...field} />
                 </FormControl>
@@ -62,7 +61,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.lastName`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Last Name</FormLabel>
+                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Achternaam</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. de Vries" {...field} />
                 </FormControl>
@@ -76,7 +75,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.email`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Email</FormLabel>
+                <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />E-mail</FormLabel>
                 <FormControl>
                   <Input type="email" placeholder="e.g. jan.devries@example.nl" {...field} />
                 </FormControl>
@@ -90,7 +89,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.company`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Company</FormLabel>
+                <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Bedrijf</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. De Vries BV" {...field} />
                 </FormControl>
@@ -104,7 +103,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.phone`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Phone</FormLabel>
+                <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Telefoonnummer</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. 0612345678" {...field} />
                 </FormControl>
@@ -114,14 +113,14 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           />
         </div>
 
-        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Address</h3>
+        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Adres</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
            <FormField
             control={control}
             name={`customers.${index}.address1`}
             render={({ field }) => (
               <FormItem className="md:col-span-2 lg:col-span-3">
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 1</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 1</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. Hoofdstraat 123" {...field} />
                 </FormControl>
@@ -134,7 +133,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.address2`}
             render={({ field }) => (
               <FormItem className="md:col-span-2 lg:col-span-3">
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 2</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 2</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. Appartement 4B" {...field} />
                 </FormControl>
@@ -147,7 +146,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.city`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />City</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Plaats</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. Amsterdam" {...field} />
                 </FormControl>
@@ -160,7 +159,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.province`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province/State</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provincie</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. Noord-Holland" {...field} />
                 </FormControl>
@@ -173,7 +172,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.provinceCode`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province Code</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provinciencode</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. NH" {...field} />
                 </FormControl>
@@ -186,7 +185,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.zip`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Zip/Postal Code</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Postcode</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. 1012 AB" {...field} />
                 </FormControl>
@@ -199,9 +198,9 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.country`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Land</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Netherlands" {...field} />
+                  <Input placeholder="e.g. Nederland" {...field} />
                 </FormControl>
                 {customerErrors?.country && <FormMessage>{customerErrors.country.message}</FormMessage>}
               </FormItem>
@@ -212,7 +211,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.countryCode`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country Code</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Landcode</FormLabel>
                 <FormControl>
                   <Input placeholder="e.g. NL" {...field} />
                 </FormControl>
@@ -227,7 +226,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           name={`customers.${index}.tags`}
           render={({ field }) => (
             <FormItem className="mt-4">
-              <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (comma-separated)</FormLabel>
+              <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (komma-gescheiden)</FormLabel>
               <FormControl>
                 <Input placeholder="e.g. vip, groothandel" {...field} />
               </FormControl>
@@ -241,7 +240,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           name={`customers.${index}.note`}
           render={({ field }) => (
             <FormItem className="mt-4">
-              <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Note</FormLabel>
+              <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Notitie</FormLabel>
               <FormControl>
                 <Textarea placeholder="Notities over de klant..." className="min-h-[80px]" {...field} />
               </FormControl>
@@ -250,7 +249,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           )}
         />
 
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <FormField
             control={control}
             name={`customers.${index}.acceptsMarketing`}
@@ -262,8 +261,24 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-                <FormLabel className="font-normal flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Accepts Marketing</FormLabel>
+                <FormLabel className="font-normal flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert E-mailmarketing</FormLabel>
                 {customerErrors?.acceptsMarketing && <FormMessage>{customerErrors.acceptsMarketing.message}</FormMessage>}
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name={`customers.${index}.acceptsSmsMarketing`}
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-3 shadow-sm">
+                 <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <FormLabel className="font-normal flex items-center"><MessageSquare className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert SMS Marketing</FormLabel>
+                {customerErrors?.acceptsSmsMarketing && <FormMessage>{customerErrors.acceptsSmsMarketing.message}</FormMessage>}
               </FormItem>
             )}
           />
@@ -278,7 +293,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                     onCheckedChange={field.onChange}
                   />
                 </FormControl>
-                <FormLabel className="font-normal flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Tax Exempt</FormLabel>
+                <FormLabel className="font-normal flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Belastingvrij</FormLabel>
                 {customerErrors?.taxExempt && <FormMessage>{customerErrors.taxExempt.message}</FormMessage>}
               </FormItem>
             )}
