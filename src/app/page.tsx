@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, MailPlus } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, MailPlus, MailMinus } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -32,6 +32,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
+  const [allCurrentlySubscribed, setAllCurrentlySubscribed] = useState<boolean>(false);
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -75,6 +76,16 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
+
+  // Effect to update allCurrentlySubscribed state
+  useEffect(() => {
+    if (allCustomers.length > 0) {
+      const allAreSubscribed = allCustomers.every(customer => customer.acceptsMarketing);
+      setAllCurrentlySubscribed(allAreSubscribed);
+    } else {
+      setAllCurrentlySubscribed(false); // Default if no customers
+    }
+  }, [allCustomers]);
 
 
   const addNewCustomer = () => {
@@ -203,21 +214,32 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     setCurrentPage(1); // Reset to first page
   };
 
-  const handleSubscribeAll = () => {
+  const handleToggleAllSubscriptions = () => {
     if (allCustomers.length === 0) {
       toast({
-        title: 'No Customers to Subscribe',
-        description: 'There are no customers loaded to subscribe to the newsletter.',
+        title: 'No Customers to Update',
+        description: 'There are no customers loaded to update their newsletter subscription.',
         variant: 'default',
       });
       return;
     }
+
+    const targetSubscriptionStatus = !allCurrentlySubscribed;
     allCustomers.forEach((_, index) => {
-      setValue(`customers.${index}.acceptsMarketing`, true, { shouldDirty: true, shouldValidate: true });
+      setValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldDirty: true, shouldValidate: true });
     });
+    
+    // The useEffect watching allCustomers will update allCurrentlySubscribed, 
+    // but for immediate UI feedback on the button, we can set it here too.
+    // However, setValue might not synchronously update `watch('customers')`,
+    // so relying on the useEffect is safer for the `allCurrentlySubscribed` state.
+    // For this interactive button, we can optimistically update its own display state
+    // or trust the RHF update cycle is fast enough.
+    // The toast message is immediate.
+
     toast({
-      title: 'All Customers Subscribed',
-      description: 'All customers have been set to "Accepts Marketing".',
+      title: targetSubscriptionStatus ? 'All Customers Subscribed' : 'All Customers Unsubscribed',
+      description: `All customers have been set to "${targetSubscriptionStatus ? 'Accepts Marketing' : 'Does Not Accept Marketing'}".`,
     });
   };
 
@@ -256,8 +278,9 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 </Button>
                 {fields.length > 0 && (
                   <>
-                    <Button onClick={handleSubscribeAll} variant="outline">
-                      <MailPlus className="mr-2 h-5 w-5" /> Subscribe All to Newsletter
+                    <Button onClick={handleToggleAllSubscriptions} variant="outline">
+                      {allCurrentlySubscribed ? <MailMinus className="mr-2 h-5 w-5" /> : <MailPlus className="mr-2 h-5 w-5" />}
+                      {allCurrentlySubscribed ? 'Unsubscribe All from Newsletter' : 'Subscribe All to Newsletter'}
                     </Button>
                     <div className="flex items-center space-x-2">
                       <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total customers per page:</Label>
