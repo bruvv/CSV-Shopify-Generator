@@ -303,7 +303,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const handleFindTestCustomers = () => {
       const allCustomers = getValues().customers;
       const indices: number[] = [];
-      const testRegex = /test/i; // case-insensitive
+      const testRegex = /\btest\b/i; // case-insensitive, whole word only
 
       allCustomers.forEach((customer, index) => {
         const searchableFields = [
@@ -501,3 +501,4 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     </FormProvider>
   );
 }
+
