@@ -39,17 +39,18 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     defaultValues: {
       customers: [],
     },
-    mode: 'onChange',
+    mode: 'onChange', // onChange mode is good for immediate feedback, but trigger after load is explicit
   });
 
-  const { control, handleSubmit, reset, formState: { errors }, watch, trigger } = formMethods;
+  const { control, handleSubmit, reset, formState, watch, trigger, getValues } = formMethods;
+  const { errors } = formState;
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'customers',
   });
 
-  const allCustomers = watch('customers');
+  const allCustomers = watch('customers'); // Watching for real-time updates
   const totalItems = fields.length;
 
   // Calculate pagination variables
@@ -134,11 +135,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = async (e) => { // Made async to await trigger
+      reader.onload = async (e) => {
         try {
           const csvString = e.target?.result as string;
           const result: ParseCustomerResult = parseMagentoCustomerCsv(csvString);
@@ -166,21 +167,64 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
               note: c.note || '',
               taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
             } as ShopifyCustomerFormData));
-            reset({ customers: newCustomers });
-            await trigger(); // Trigger validation for all fields
-            setCurrentPage(1); 
-            toast({ title: 'CSV Imported Successfully', description: result.message });
+            
+            reset({ customers: newCustomers }); // Populate form
+            
+            // Ensure state updates from reset are processed before trigger and error checking
+            await new Promise(resolve => setTimeout(resolve, 0)); 
+
+            const isValid = await trigger(); // Validate all fields
+
+            if (!isValid) {
+              const customerErrors = formState.errors.customers;
+              let firstErrorCustomerIndex = -1;
+              const currentCustomers = getValues().customers; // Get current customer list after reset
+
+              if (customerErrors && Array.isArray(customerErrors) && currentCustomers) {
+                for (let i = 0; i < currentCustomers.length; i++) {
+                  if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
+                    firstErrorCustomerIndex = i;
+                    break;
+                  }
+                }
+              }
+
+              if (firstErrorCustomerIndex !== -1) {
+                const itemsPerPageToUse = showAll ? (currentCustomers.length > 0 ? currentCustomers.length : 1) : itemsPerPage;
+                const errorPage = Math.floor(firstErrorCustomerIndex / itemsPerPageToUse) + 1;
+                setCurrentPage(errorPage);
+                toast({
+                  title: "Validation Errors Found",
+                  description: `Please review customer #${firstErrorCustomerIndex + 1} (and potentially others) for errors. Navigated to their page.`,
+                  variant: "destructive",
+                });
+              } else {
+                 // This case means isValid is false, but we couldn't pinpoint an error in the customers array.
+                 // Could be a root form error or an issue if customers array was empty during check.
+                 toast({ title: 'Imported with Validation Issues', description: 'Please check the form for highlighted errors.', variant: 'destructive'});
+                 setCurrentPage(1); // Default to first page if specific error not found
+              }
+            } else {
+              // Successfully imported and all data is valid
+              setCurrentPage(1);
+              toast({ title: 'CSV Imported Successfully', description: `${newCustomers.length} customer(s) loaded and valid.` });
+            }
+
           } else if (result.type === 'no_customers_extracted') {
              toast({ title: 'Import Note', description: result.message, variant: 'default'});
              reset({ customers: [] }); 
              setCurrentPage(1);
           } else if (result.type === 'parse_error') {
             toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
+            reset({ customers: [] });
+            setCurrentPage(1);
           }
 
         } catch (error) {
            console.error("Error processing CSV:", error);
            toast({ title: 'Import Failed', description: 'Could not process the CSV file. Please check the format and content.', variant: 'destructive'});
+           reset({ customers: [] });
+           setCurrentPage(1);
         }
       };
       reader.readAsText(file);
