@@ -33,7 +33,8 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
-  const [randomImageHint, setRandomImageHint] = useState('empty state'); // Default hint
+  const [randomImageHint, setRandomImageHint] = useState('empty state');
+  const [randomPlaceholderUrl, setRandomPlaceholderUrl] = useState('https://placehold.co/300x200.png');
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -78,9 +79,14 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
 
-  // Effect to set random image hint on mount
+  // Effect to set random image hint and placeholder URL on mount
   useEffect(() => {
     setRandomImageHint(HINT_OPTIONS[Math.floor(Math.random() * HINT_OPTIONS.length)]);
+    
+    const randomHexColor = () => Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+    const bgColor = randomHexColor();
+    const textColor = randomHexColor();
+    setRandomPlaceholderUrl(`https://placehold.co/300x200/${bgColor}/${textColor}.png`);
   }, []);
 
 
@@ -267,7 +273,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              <Image src="https://placehold.co/300x200.png" alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint={randomImageHint} />
+              <Image src={randomPlaceholderUrl} alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint={randomImageHint} />
               <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
               <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
             </div>
