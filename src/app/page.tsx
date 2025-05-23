@@ -229,14 +229,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldDirty: true, shouldValidate: true });
     });
     
-    // The useEffect watching allCustomers will update allCurrentlySubscribed, 
-    // but for immediate UI feedback on the button, we can set it here too.
-    // However, setValue might not synchronously update `watch('customers')`,
-    // so relying on the useEffect is safer for the `allCurrentlySubscribed` state.
-    // For this interactive button, we can optimistically update its own display state
-    // or trust the RHF update cycle is fast enough.
-    // The toast message is immediate.
-
     toast({
       title: targetSubscriptionStatus ? 'All Customers Subscribed' : 'All Customers Unsubscribed',
       description: `All customers have been set to "${targetSubscriptionStatus ? 'Accepts Marketing' : 'Does Not Accept Marketing'}".`,
@@ -278,7 +270,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 </Button>
                 {fields.length > 0 && (
                   <>
-                    <Button onClick={handleToggleAllSubscriptions} variant="outline">
+                    <Button
+                      onClick={handleToggleAllSubscriptions}
+                      variant={allCurrentlySubscribed ? "secondary" : "outline"}
+                      className={allCurrentlySubscribed ? "bg-accent hover:bg-accent/90 text-accent-foreground" : ""}
+                    >
                       {allCurrentlySubscribed ? <MailMinus className="mr-2 h-5 w-5" /> : <MailPlus className="mr-2 h-5 w-5" />}
                       {allCurrentlySubscribed ? 'Unsubscribe All from Newsletter' : 'Subscribe All to Newsletter'}
                     </Button>
