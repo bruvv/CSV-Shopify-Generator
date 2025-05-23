@@ -5,23 +5,23 @@ import type React from 'react';
 import { useState, useRef } from 'react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { productsSchema, type ProductsFormData, type ProductFormData } from '@/schemas/product';
-import { generateShopifyCsv, parseProductCsv, type ParseResult } from '@/lib/shopify-csv';
+import { shopifyCustomersSchema, type ShopifyCustomersFormData, type ShopifyCustomerFormData } from '@/schemas/customer';
+import { generateShopifyCustomerCsv, parseMagentoCustomerCsv, type ParseCustomerResult } from '@/lib/customer-csv-converter';
 import { Button } from '@/components/ui/button';
-import { ProductEntryForm } from '@/components/product-entry-form';
+import { CustomerEntryForm } from '@/components/customer-entry-form'; // Updated import
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, FileText, RefreshCw } from 'lucide-react';
+import { Upload, Download, PlusCircle, Users, RefreshCw } from 'lucide-react'; // Users icon instead of FileText
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 
-export default function MagentoToShopifyCsvConverterPage() {
+export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const formMethods = useForm<ProductsFormData>({
-    resolver: zodResolver(productsSchema),
+  const formMethods = useForm<ShopifyCustomersFormData>({
+    resolver: zodResolver(shopifyCustomersSchema),
     defaultValues: {
-      products: [],
+      customers: [],
     },
     mode: 'onChange',
   });
@@ -30,51 +30,55 @@ export default function MagentoToShopifyCsvConverterPage() {
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'products',
+    name: 'customers',
   });
 
-  const addNewProduct = () => {
+  const addNewCustomer = () => {
     append({
       id: crypto.randomUUID(),
-      title: '',
-      bodyHtml: '',
-      vendor: '',
-      productType: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      company: '',
+      address1: '',
+      address2: '',
+      city: '',
+      province: '',
+      provinceCode: '',
+      country: '',
+      countryCode: '',
+      zip: '',
+      phone: '',
+      acceptsMarketing: false,
       tags: '',
-      published: true,
-      price: 0,
-      sku: '',
-      imageSrc: '',
-      inventoryQuantity: 0,
-      requiresShipping: true,
-      taxable: true,
-      status: 'active',
+      note: '',
+      taxExempt: false,
     });
-    toast({ title: "New product entry added", description: "Fill in the details for the new product." });
+    toast({ title: "New customer entry added", description: "Fill in the details for the new customer." });
   };
 
-  const onFormSubmit = (data: ProductsFormData) => {
-    if (data.products.length === 0) {
+  const onFormSubmit = (data: ShopifyCustomersFormData) => {
+    if (data.customers.length === 0) {
       toast({
-        title: 'No Products to Export',
-        description: 'Please add at least one product before generating the Shopify CSV.',
+        title: 'No Customers to Export',
+        description: 'Please add at least one customer before generating the Shopify CSV.',
         variant: 'destructive',
       });
       return;
     }
     try {
-      const csvContent = generateShopifyCsv(data.products);
+      const csvContent = generateShopifyCustomerCsv(data.customers);
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', 'shopify_products_export.csv');
+        link.setAttribute('download', 'shopify_customers_export.csv');
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        toast({ title: 'Shopify CSV Generated', description: 'Your Shopify product CSV has been downloaded.' });
+        toast({ title: 'Shopify Customer CSV Generated', description: 'Your Shopify customer CSV has been downloaded.' });
       }
     } catch (error) {
       console.error("Error generating CSV:", error);
@@ -89,43 +93,45 @@ export default function MagentoToShopifyCsvConverterPage() {
       reader.onload = (e) => {
         try {
           const csvString = e.target?.result as string;
-          const result: ParseResult = parseProductCsv(csvString);
+          const result: ParseCustomerResult = parseMagentoCustomerCsv(csvString);
 
-          if (result.type === 'products') {
-            const parsedProducts = result.data;
-            if (parsedProducts.length > 0) {
-              const newProducts = parsedProducts.map(p => ({
-                id: p.id || crypto.randomUUID(),
-                title: p.title || '',
-                bodyHtml: p.bodyHtml || '',
-                vendor: p.vendor || '',
-                productType: p.productType || '',
-                tags: p.tags || '',
-                published: p.published !== undefined ? p.published : true,
-                price: p.price !== undefined ? p.price : 0,
-                sku: p.sku || '',
-                imageSrc: p.imageSrc || '',
-                inventoryQuantity: p.inventoryQuantity !== undefined ? p.inventoryQuantity : 0,
-                requiresShipping: p.requiresShipping !== undefined ? p.requiresShipping : true,
-                taxable: p.taxable !== undefined ? p.taxable : true,
-                status: p.status || 'active',
-              } as ProductFormData));
-              reset({ products: newProducts });
-              let importMessage = `${newProducts.length} products loaded.`;
-              if (result.format === 'magento') {
-                importMessage = `${newProducts.length} products loaded from Magento CSV.`;
-              } else if (result.format === 'shopify') {
-                importMessage = `${newProducts.length} products loaded from Shopify CSV.`;
+          if (result.type === 'customers') {
+            const parsedCustomers = result.data;
+            if (parsedCustomers.length > 0) {
+              const newCustomers = parsedCustomers.map(c => ({
+                id: c.id || crypto.randomUUID(),
+                firstName: c.firstName || '',
+                lastName: c.lastName || '',
+                email: c.email || '',
+                company: c.company || '',
+                address1: c.address1 || '',
+                address2: c.address2 || '',
+                city: c.city || '',
+                province: c.province || '',
+                provinceCode: c.provinceCode || '',
+                country: c.country || '',
+                countryCode: c.countryCode || '',
+                zip: c.zip || '',
+                phone: c.phone || '',
+                acceptsMarketing: c.acceptsMarketing !== undefined ? c.acceptsMarketing : false,
+                tags: c.tags || '',
+                note: c.note || '',
+                taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
+              } as ShopifyCustomerFormData));
+              reset({ customers: newCustomers });
+              let importMessage = `${newCustomers.length} customers loaded.`;
+              if (result.format === 'magento_customer') {
+                importMessage = `${newCustomers.length} customers loaded from Magento Customer CSV.`;
               }
-               if (result.message) {
+              if (result.message) {
                 importMessage += ` ${result.message}`;
               }
               toast({ title: 'CSV Imported', description: importMessage });
             } else {
-               toast({ title: 'Import Note', description: result.message || 'CSV processed, but no valid product entries were found.', variant: 'default'});
+               toast({ title: 'Import Note', description: result.message || 'CSV processed, but no valid customer entries were found.', variant: 'default'});
             }
-          } else if (result.type === 'customers') {
-            toast({ title: 'Import Info', description: result.message, variant: 'default' });
+          } else if (result.type === 'products') {
+             toast({ title: 'Import Info', description: result.message, variant: 'default' });
           } else if (result.type === 'unknown_csv' || result.type === 'empty') {
             toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
           }
@@ -148,10 +154,10 @@ export default function MagentoToShopifyCsvConverterPage() {
         <header className="mb-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <RefreshCw className="h-12 w-12 text-primary mr-3" />
-            <h1 className="text-4xl font-bold text-primary">Magento to Shopify CSV Converter</h1>
+            <h1 className="text-4xl font-bold text-primary">Magento to Shopify Customer CSV Converter</h1>
           </div>
           <p className="text-lg text-muted-foreground">
-            Upload your Magento product CSV, review and edit if needed, then generate an importable Shopify CSV file.
+            Upload your Magento customer CSV, review and edit if needed, then generate an importable Shopify customer CSV file.
           </p>
         </header>
 
@@ -159,7 +165,7 @@ export default function MagentoToShopifyCsvConverterPage() {
             <h2 className="text-2xl font-semibold mb-4 text-primary">Actions</h2>
             <div className="flex flex-wrap gap-4">
                 <Button onClick={() => fileInputRef.current?.click()} variant="outline">
-                    <Upload className="mr-2 h-5 w-5" /> Import Magento/Shopify CSV
+                    <Upload className="mr-2 h-5 w-5" /> Import Magento Customer CSV
                 </Button>
                 <input
                     type="file"
@@ -168,8 +174,8 @@ export default function MagentoToShopifyCsvConverterPage() {
                     accept=".csv"
                     className="hidden"
                 />
-                <Button onClick={addNewProduct} variant="default">
-                    <PlusCircle className="mr-2 h-5 w-5" /> Add New Product Manually
+                <Button onClick={addNewCustomer} variant="default">
+                    <PlusCircle className="mr-2 h-5 w-5" /> Add New Customer Manually
                 </Button>
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify CSV
@@ -182,13 +188,13 @@ export default function MagentoToShopifyCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              <Image src="https://placehold.co/300x200.png" alt="No products" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint="empty state illustration" />
-              <p className="text-xl text-muted-foreground">No products loaded or added yet.</p>
-              <p className="text-sm text-muted-foreground">Click "Import Magento/Shopify CSV" or "Add New Product" to get started.</p>
+              <Image src="https://placehold.co/300x200.png" alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint="empty state people" />
+              <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
+              <p className="text-sm text-muted-foreground">Click "Import Magento Customer CSV" or "Add New Customer" to get started.</p>
             </div>
           )}
           {fields.map((field, index) => (
-            <ProductEntryForm
+            <CustomerEntryForm // Updated component
               key={field.id}
               control={control}
               index={index}
