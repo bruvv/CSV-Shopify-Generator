@@ -14,49 +14,67 @@ import { useToast } from '@/hooks/use-toast';
 import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-const ITEMS_PER_PAGE = 1; // Changed to 1 to force pagination with few items
+
+const PAGE_OPTIONS = [5, 20, 50, 100];
 
 export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
+  const [showAll, setShowAll] = useState<boolean>(false);
+
 
   const formMethods = useForm<ShopifyCustomersFormData>({
     resolver: zodResolver(shopifyCustomersSchema),
     defaultValues: {
       customers: [],
     },
-    mode: 'onChange', // 'onBlur' or 'onChange' might be better for performance with many fields
+    mode: 'onChange',
   });
 
-  const { control, handleSubmit, reset, formState: { errors, dirtyFields }, watch } = formMethods;
+  const { control, handleSubmit, reset, formState: { errors }, watch } = formMethods;
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'customers',
   });
 
-  const allCustomers = watch('customers'); // Watch all customers for pagination length
+  const allCustomers = watch('customers');
+  const totalItems = fields.length;
 
   // Calculate pagination variables
-  const totalItems = fields.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedFields = fields.slice(startIndex, endIndex);
+  const actualItemsPerPage = showAll ? (totalItems > 0 ? totalItems : 1) : itemsPerPage;
+  const totalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / actualItemsPerPage);
+  
+  const startIndex = (currentPage - 1) * actualItemsPerPage;
+  const endIndex = Math.min(startIndex + actualItemsPerPage, totalItems);
+  
+  const paginatedFields = showAll ? fields : fields.slice(startIndex, endIndex);
 
-  // Effect to adjust current page if it becomes out of bounds after item removal or data reset
+  // Effect to adjust current page if it becomes out of bounds
   useEffect(() => {
     if (totalItems === 0) {
       setCurrentPage(1);
       return;
     }
-    const newTotalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    // Recalculate actualItemsPerPage and totalPages based on current state for this effect
+    const currentActualItemsPerPage = showAll ? (totalItems > 0 ? totalItems : 1) : itemsPerPage;
+    const newTotalPages = totalItems === 0 ? 1 : Math.ceil(totalItems / currentActualItemsPerPage);
+
     if (currentPage > newTotalPages) {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
-  }, [totalItems, currentPage]);
+  }, [totalItems, currentPage, itemsPerPage, showAll]);
 
 
   const addNewCustomer = () => {
@@ -82,7 +100,8 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     });
     // Go to the page where the new customer will be visible
     const newTotalItems = fields.length + 1;
-    const newTotalPages = Math.ceil(newTotalItems / ITEMS_PER_PAGE);
+    const currentActualItemsPerPageForAdd = showAll ? (newTotalItems > 0 ? newTotalItems : 1) : itemsPerPage;
+    const newTotalPages = Math.ceil(newTotalItems / currentActualItemsPerPageForAdd);
     setCurrentPage(newTotalPages);
     toast({ title: "New customer entry added", description: "Fill in the details for the new customer." });
   };
@@ -148,11 +167,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
               taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
             } as ShopifyCustomerFormData));
             reset({ customers: newCustomers });
-            setCurrentPage(1); // Reset to first page on new upload
+            setCurrentPage(1); 
             toast({ title: 'CSV Imported Successfully', description: result.message });
           } else if (result.type === 'no_customers_extracted') {
              toast({ title: 'Import Note', description: result.message, variant: 'default'});
-             reset({ customers: [] }); // Clear existing customers if no new ones found
+             reset({ customers: [] }); 
              setCurrentPage(1);
           } else if (result.type === 'parse_error') {
             toast({ title: 'Import Failed', description: result.message, variant: 'destructive'});
@@ -172,7 +191,16 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   
   const handleRemoveCustomer = (index: number) => {
     remove(index);
-    // The useEffect for totalItems will handle page adjustment
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    if (value === 'all') {
+      setShowAll(true);
+    } else {
+      setShowAll(false);
+      setItemsPerPage(Number(value));
+    }
+    setCurrentPage(1); // Reset to first page
   };
 
   return (
@@ -190,7 +218,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-primary">Actions</h2>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap items-center gap-4">
                 <Button onClick={() => fileInputRef.current?.click()} variant="outline">
                     <Upload className="mr-2 h-5 w-5" /> Import Customer CSV
                 </Button>
@@ -207,6 +235,23 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify CSV
                 </Button>
+                 <div className="flex items-center space-x-2">
+                  <Label htmlFor="items-per-page-select" className="text-sm font-medium">Show:</Label>
+                  <Select
+                    value={showAll ? 'all' : String(itemsPerPage)}
+                    onValueChange={handleItemsPerPageChange}
+                  >
+                    <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
+                      <SelectValue placeholder="Count" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_OPTIONS.map(option => (
+                        <SelectItem key={option} value={String(option)}>{option}</SelectItem>
+                      ))}
+                      <SelectItem value="all">All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
             </div>
         </div>
         
@@ -225,9 +270,9 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             const originalIndex = startIndex + localIndex;
             return (
               <CustomerEntryForm
-                key={field.id} // RHF uses this to track array fields
+                key={field.id}
                 control={control}
-                index={originalIndex} // This must be the original index in the `fields` array
+                index={originalIndex}
                 remove={() => handleRemoveCustomer(originalIndex)}
                 errors={errors}
               />
