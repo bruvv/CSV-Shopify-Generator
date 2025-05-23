@@ -41,9 +41,22 @@ const formatDutchPhoneNumber = (phone: string | undefined): string => {
     // Handles cases like 31612345678 or 31501234567
     cleanedPhone = `+${cleanedPhone}`;
   }
-  // If it already starts with +31, or doesn't match other rules, it's returned as is (or after initial cleaning)
   return cleanedPhone;
 };
+
+function capitalizeCityName(city: string): string {
+  if (!city) return '';
+  return city
+    .toLowerCase()
+    .split(/\s+/) // Split by spaces
+    .map(word =>
+      word
+        .split('-') // Split by hyphens
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join('-')
+    )
+    .join(' ');
+}
 
 
 export const generateShopifyCustomerCsv = (customers: ShopifyCustomerFormData[]): string => {
@@ -118,11 +131,6 @@ const parseCsvLine = (line: string, delimiter: ',' | ';'): string[] => {
 };
 
 
-// Helper function to escape string for regex constructor
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
-
 export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult => {
   const trimmedCsvString = csvString.trim();
   if (!trimmedCsvString) return { type: 'parse_error', message: 'The CSV file is empty.' };
@@ -136,12 +144,12 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
   for (let i = 0; i < Math.min(allLines.length, 10); i++) {
     const currentLine = allLines[i];
-    if (!currentLine.trim()) continue; // Skip empty lines
+    if (!currentLine.trim()) continue; 
 
     const tempDelimiter = detectDelimiter(currentLine);
     const parsedAsHeader = parseCsvLine(currentLine, tempDelimiter).map((h, idx) => {
         let cleanH = h.toLowerCase().trim();
-        if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); // Remove BOM
+        if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); 
         if (cleanH.startsWith('"') && cleanH.endsWith('"')) {
             cleanH = cleanH.substring(1, cleanH.length - 1);
         }
@@ -154,7 +162,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
         keywordFoundCount++;
       }
     }
-    // Prioritize 'email' as a strong indicator of a header, or a sufficient number of other keywords
+    
     if (parsedAsHeader.includes('email') || keywordFoundCount >= 3) {
       headerLine = currentLine;
       actualHeaderRowIndex = i;
@@ -172,7 +180,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   const rawHeaders = parseCsvLine(headerLine, delimiter);
   const headers = rawHeaders.map((h, idx) => {
     let cleanH = h.toLowerCase().trim();
-    if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); // Remove BOM
+    if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); 
     if (cleanH.startsWith('"') && cleanH.endsWith('"')) {
         cleanH = cleanH.substring(1, cleanH.length - 1);
     }
@@ -225,45 +233,40 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
     if (values.length !== headers.length && line.trim() !== '') {
         console.warn(`Column count mismatch: Expected ${headers.length}, got ${values.length}. Line: "${line}"`);
-        continue; // Skip lines with column count mismatch
+        continue; 
     }
     if (values.length === 0 || values.every(v => v === '')) continue;
 
     const customer: Partial<ShopifyCustomerFormData> = {
       id: crypto.randomUUID(),
-      acceptsSmsMarketing: false, // Default value
+      acceptsSmsMarketing: false, 
     };
 
     if (emailIdx !== -1) customer.email = values[emailIdx];
-
-    // Name parsing logic
+    
     const magentoRawLastName = lastnameIdx !== -1 ? values[lastnameIdx] : '';
     const magentoContactPerson = contactPersonIdx !== -1 ? values[contactPersonIdx] : '';
     const magentoRawFirstName = firstnameIdx !== -1 ? values[firstnameIdx] : '';
 
     let finalFirstName = '';
-    let finalLastName = magentoRawLastName; // Prioritize lastname column
+    let finalLastName = magentoRawLastName; 
 
     if (finalLastName && magentoContactPerson) {
-        // Try to derive firstname from contact_person by removing lastname
-        // Case-insensitive removal from the end of contact_person
         const contactLower = magentoContactPerson.toLowerCase();
         const lastNameLower = finalLastName.toLowerCase();
         
         if (contactLower.endsWith(lastNameLower)) {
             const potentialFirstName = magentoContactPerson.substring(0, magentoContactPerson.length - finalLastName.length).trim();
             if (potentialFirstName) {
-                finalFirstName = potentialFirstName.replace(/,$/, '').trim(); // Remove trailing comma if any
+                finalFirstName = potentialFirstName.replace(/,$/, '').trim(); 
             }
         }
     }
     
-    // Fallback if firstname is still empty: use magentoRawFirstName
     if (!finalFirstName && magentoRawFirstName) {
         finalFirstName = magentoRawFirstName;
     }
     
-    // Further fallback: if still no firstname but contact_person exists, and no lastname was found, split contact_person
     if (!finalFirstName && magentoContactPerson && !finalLastName) {
         const parts = magentoContactPerson.split(/\s+/);
         finalFirstName = parts[0];
@@ -279,13 +282,16 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     if (companyNameIdx !== -1) customer.company = values[companyNameIdx];
     if (companyAddressIdx !== -1) customer.address1 = values[companyAddressIdx];
     if (address2Idx !== -1) customer.address2 = values[address2Idx];
-    if (cityIdx !== -1) customer.city = values[cityIdx];
+    
+    if (cityIdx !== -1 && values[cityIdx]) {
+      customer.city = capitalizeCityName(values[cityIdx]);
+    }
+
     if (postcodeIdx !== -1) customer.zip = values[postcodeIdx];
 
     if (countryIdx !== -1 && values[countryIdx]) {
         const countryValue = values[countryIdx];
         customer.country = countryValue;
-        // Basic check for country code, can be improved with a list of valid codes
         if (countryValue?.length === 2 && countryValue === countryValue?.toUpperCase()) {
             customer.countryCode = countryValue;
         }
@@ -303,16 +309,13 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     if (createdAtIdx !== -1 && values[createdAtIdx]) tagsArray.push(`magento_created_at:${values[createdAtIdx]}`);
     if (vatNumberIdx !== -1 && values[vatNumberIdx]) {
       tagsArray.push(`magento_vat_number:${values[vatNumberIdx]}`);
-      customer.taxExempt = true; // Assumption: if VAT number is present, they might be tax exempt. User can change.
+      customer.taxExempt = true; 
     }
 
 
     customer.tags = tagsArray.filter(tag => tag.split(':')[1]?.trim()).join(', ');
+    customer.acceptsMarketing = false; 
 
-    customer.acceptsMarketing = false; // Default, can be changed by user
-    // customer.taxExempt is set above if VAT number is present
-
-    // Only add customer if there's some identifying information
     if (customer.email || customer.firstName || customer.lastName || customer.company || customer.address1 || customer.phone) {
       customers.push(customer);
     }
@@ -321,10 +324,9 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   if (customers.length > 0) {
     return { type: 'customers_found', data: customers, message: `${customers.length} customer(s) loaded from the CSV. Review and edit if needed.` };
   } else {
-    if (mappableHeadersFound || headers.length > 0) { // Check if headers were found but no data
+    if (mappableHeadersFound || headers.length > 0) { 
          return { type: 'no_customers_extracted', message: 'CSV headers were recognized, but no valid customer data rows could be extracted. Check if rows have essential info like email or names, and ensure data aligns with headers.' };
     }
-    // Generic no data extracted message if headers weren't even clear
     return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
   }
 };

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, SearchCheck } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -34,8 +34,9 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [showAll, setShowAll] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [displayMode, setDisplayMode] = useState<'all' | 'errors'>('all');
+  const [displayMode, setDisplayMode] = useState<'all' | 'errors' | 'test'>('all');
   const [currentErrorIndices, setCurrentErrorIndices] = useState<number[]>([]);
+  const [currentTestFilterIndices, setCurrentTestFilterIndices] = useState<number[]>([]);
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -70,7 +71,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
 
   useEffect(() => {
-    // If in 'errors' mode, all errors are resolved, and not currently loading, switch back to 'all' mode
     if (displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading) {
       setDisplayMode('all');
       toast({ title: "All Errors Fixed!", description: "Displaying all customers." });
@@ -80,28 +80,42 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   
 
   const itemsToPaginate: { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[] = useMemo(() => {
+    let sourceFields = fields;
+    let indicesToUse: number[] = [];
+
     if (displayMode === 'errors') {
-      return currentErrorIndices
+        indicesToUse = currentErrorIndices;
+    } else if (displayMode === 'test') {
+        indicesToUse = currentTestFilterIndices;
+    } else { // 'all' mode
+        return sourceFields.map((field, index) => ({ field: field as (ShopifyCustomerFormData & {id: string}), originalIndex: index }));
+    }
+    
+    return indicesToUse
         .map(originalIndex => {
-          const field = fields[originalIndex];
+          const field = sourceFields[originalIndex];
           return field ? { field: field as (ShopifyCustomerFormData & {id: string}), originalIndex } : null;
         })
         .filter(item => item !== null) as { field: ShopifyCustomerFormData & { id: string }, originalIndex: number }[];
-    }
-    return fields.map((field, index) => ({ field: field as (ShopifyCustomerFormData & {id: string}), originalIndex: index }));
-  }, [displayMode, fields, currentErrorIndices]);
+
+  }, [displayMode, fields, currentErrorIndices, currentTestFilterIndices]);
 
 
-  const totalItemsForCurrentMode = itemsToPaginate.length;
+  const totalItemsForCurrentMode = useMemo(() => {
+    if (displayMode === 'errors') return currentErrorIndices.length;
+    if (displayMode === 'test') return currentTestFilterIndices.length;
+    return fields.length; // 'all' mode
+  }, [displayMode, fields.length, currentErrorIndices.length, currentTestFilterIndices.length]);
+
 
   useEffect(() => {
-    if (totalItemsForCurrentMode === 0 && displayMode === 'all') { // Only reset if no items and in 'all' mode
+    if (totalItemsForCurrentMode === 0 && displayMode === 'all') { 
       setCurrentPage(1);
       return;
     }
-    // If in 'errors' mode and no items, don't reset page, might be transient
-    if (totalItemsForCurrentMode === 0 && displayMode === 'errors') {
-        setCurrentPage(1); // Or handle appropriately, maybe show "no errors" message
+    
+    if (totalItemsForCurrentMode === 0 && (displayMode === 'errors' || displayMode === 'test')) {
+        setCurrentPage(1); 
         return;
     }
 
@@ -178,8 +192,9 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsLoading(true);
-      setDisplayMode('all'); // Reset to 'all' mode for new import
-      setCurrentPage(1); // Reset page for new import
+      setDisplayMode('all'); 
+      setCurrentPage(1); 
+      setCurrentTestFilterIndices([]); // Clear previous test filter
 
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -216,12 +231,10 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             
           reset({ customers: newCustomersToSet }); 
           
-          // Allow RHF to process the reset and update formState
           await new Promise(resolve => setTimeout(resolve, 0)); 
 
-          const isValid = await trigger(); // Validate all fields
+          const isValid = await trigger(); 
           
-          // tempErrorIndices calculation based on potentially updated formState.errors
           let tempErrorIndices: number[] = [];
           if (!isValid && formMethods.formState.errors.customers) {
             const customerErrors = formMethods.formState.errors.customers;
@@ -235,7 +248,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
           if (tempErrorIndices.length > 0) {
               setDisplayMode('errors');
-              setCurrentPage(1); // Go to the first page of errors
+              setCurrentPage(1); 
               toast({
                 title: "Validation Errors Found",
                 description: `Displaying ${tempErrorIndices.length} customer(s) with errors. Please review and correct them.`,
@@ -274,7 +287,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   
   const handleRemoveCustomer = (originalIndexToRemove: number) => {
     remove(originalIndexToRemove);
-    // No need to manually adjust currentErrorIndices, the useEffect watching formState.errors will handle it.
+    // currentErrorIndices and currentTestFilterIndices will update via their useEffect/onClick handlers
   };
 
   const handleItemsPerPageChange = (value: string) => {
@@ -286,6 +299,39 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     }
     setCurrentPage(1); 
   };
+
+  const handleFindTestCustomers = () => {
+      const allCustomers = getValues().customers;
+      const indices: number[] = [];
+      const testRegex = /test/i; // case-insensitive
+
+      allCustomers.forEach((customer, index) => {
+        const searchableFields = [
+          customer.firstName, customer.lastName, customer.email,
+          customer.company, customer.address1, customer.address2,
+          customer.city, customer.province, customer.country,
+          customer.zip, customer.phone, customer.tags, customer.note
+        ];
+        if (searchableFields.some(field => typeof field === 'string' && field && testRegex.test(field))) {
+          indices.push(index);
+        }
+      });
+
+      setCurrentTestFilterIndices(indices);
+      if (indices.length > 0) {
+        setDisplayMode('test');
+        setCurrentPage(1);
+        toast({
+          title: "Test Entries Found",
+          description: `Displaying ${indices.length} customer(s) containing the word 'test'.`,
+        });
+      } else {
+        toast({
+          title: "No Test Entries Found",
+          description: "No customers matched the 'test' filter.",
+        });
+      }
+    };
 
   const actualItemsPerPage = showAll ? (totalItemsForCurrentMode > 0 ? totalItemsForCurrentMode : 1) : itemsPerPage;
   const totalPages = totalItemsForCurrentMode === 0 ? 1 : Math.ceil(totalItemsForCurrentMode / actualItemsPerPage);
@@ -306,8 +352,14 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             {displayMode === 'errors' && currentErrorIndices.length > 0 && (
                 <span className="block mt-2 font-semibold text-destructive">Currently showing {currentErrorIndices.length} customer(s) with errors.</span>
             )}
-             {displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading && (
+            {displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading && (
                 <span className="block mt-2 font-semibold text-green-600">All previously found errors seem to be fixed!</span>
+            )}
+            {displayMode === 'test' && currentTestFilterIndices.length > 0 && (
+                <span className="block mt-2 font-semibold text-blue-600">Currently showing {currentTestFilterIndices.length} customer(s) matching 'test' filter.</span>
+            )}
+            {displayMode === 'test' && currentTestFilterIndices.length === 0 && fields.length > 0 && !isLoading && (
+                <span className="block mt-2 font-semibold text-muted-foreground">No customers found matching 'test' filter.</span>
             )}
           </p>
         </header>
@@ -357,12 +409,26 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                     <Button onClick={handleFindTestCustomers} variant="outline" disabled={isLoading || fields.length === 0}>
+                        <SearchCheck className="mr-2 h-5 w-5" /> Vind 'Test' Vermeldingen
+                    </Button>
                     {displayMode === 'errors' && currentErrorIndices.length > 0 && (
                         <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentErrorIndices.length > 0 && (
                          <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen klanten met fouten ({currentErrorIndices.length})</Button>
                     )}
+                    {displayMode === 'test' && (
+                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten ({fields.length})</Button>
+                    )}
+                    {displayMode === 'all' && currentTestFilterIndices.length > 0 && ( // Show if test results exist but not active
+                         <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
+                    )}
+                     {displayMode === 'test' && currentErrorIndices.length > 0 && ( // From test mode, allow switching to errors
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon klanten met fouten ({currentErrorIndices.length})</Button>
+                    )}
+
+
                   </>
                 )}
             </div>
@@ -379,7 +445,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
 
         {!isLoading && (
           <form onSubmit={handleSubmit(onFormSubmit)}>
-            {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length === 0 && (
+            {fields.length === 0 && displayMode === 'all' && (
                <div className="text-center py-10">
                 <p className="text-xl text-muted-foreground">Nog geen klanten geladen of toegevoegd.</p>
                 <p className="text-sm text-muted-foreground">Klik op "Importeer Klanten CSV" of "Nieuwe Klant Handmatig Toevoegen" om te beginnen.</p>
@@ -391,11 +457,21 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                  <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten</Button>
                </div>
             )}
-             {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length > 0 && currentErrorIndices.length > 0 && (
+            {itemsToPaginate.length === 0 && displayMode === 'test' && (
+                 <div className="text-center py-10">
+                 <p className="text-xl text-muted-foreground">Geen klanten gevonden die overeenkomen met de 'test' filter.</p>
+                 <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle klanten</Button>
+               </div>
+            )}
+             {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length > 0 && (currentErrorIndices.length > 0 || currentTestFilterIndices.length >0) && (
                 <div className="text-center py-10">
                     <p className="text-xl text-muted-foreground">Alle klanten zijn verborgen door de huidige filterinstellingen.</p>
-                    <p className="text-sm text-muted-foreground">Mogelijk zijn er geen klanten die voldoen aan de huidige filter of pagina-instelling.</p>
-                    <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen klanten met fouten ({currentErrorIndices.length})</Button>
+                    {currentErrorIndices.length > 0 && (
+                        <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen klanten met fouten ({currentErrorIndices.length})</Button>
+                    )}
+                     {currentTestFilterIndices.length > 0 && (
+                        <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
+                    )}
                 </div>
             )}
 
@@ -403,7 +479,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
             {paginatedItemsForRender.map(({ field, originalIndex }) => {
               return (
                 <CustomerEntryForm
-                  key={field.id} // Use the unique ID from the field itself
+                  key={field.id} 
                   control={control}
                   index={originalIndex} 
                   remove={() => handleRemoveCustomer(originalIndex)}
@@ -425,6 +501,3 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     </FormProvider>
   );
 }
-    
-
-    
