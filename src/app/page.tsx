@@ -42,7 +42,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     mode: 'onChange',
   });
 
-  const { control, handleSubmit, reset, formState: { errors }, watch } = formMethods;
+  const { control, handleSubmit, reset, formState: { errors }, watch, trigger } = formMethods;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -138,7 +138,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => { // Made async to await trigger
         try {
           const csvString = e.target?.result as string;
           const result: ParseCustomerResult = parseMagentoCustomerCsv(csvString);
@@ -167,6 +167,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
               taxExempt: c.taxExempt !== undefined ? c.taxExempt : false,
             } as ShopifyCustomerFormData));
             reset({ customers: newCustomers });
+            await trigger(); // Trigger validation for all fields
             setCurrentPage(1); 
             toast({ title: 'CSV Imported Successfully', description: result.message });
           } else if (result.type === 'no_customers_extracted') {
@@ -236,7 +237,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify CSV
                 </Button>
-                {fields.length > 0 && (
+                 {fields.length > 0 && (
                   <>
                     <div className="flex items-center space-x-2">
                       <Label htmlFor="items-per-page-select" className="text-sm font-medium">Totaal klanten per pagina:</Label>
