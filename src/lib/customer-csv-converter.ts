@@ -35,7 +35,7 @@ const formatDutchPhoneNumber = (phone: string | undefined): string => {
     cleanedPhone = `+31${cleanedPhone.substring(4)}`;
   } else if (cleanedPhone.startsWith('06') && cleanedPhone.length === 10) { // Standard Dutch mobile
     cleanedPhone = `+316${cleanedPhone.substring(2)}`;
-  } else if (cleanedPhone.startsWith('0') && cleanedPhone.length > 1) { // Other Dutch numbers starting with 0 (covers 05xx, 010xx, etc.)
+  } else if (cleanedPhone.startsWith('0') && cleanedPhone.length > 1) { // Other Dutch numbers starting with 0
     cleanedPhone = `+31${cleanedPhone.substring(1)}`;
   } else if (cleanedPhone.startsWith('31') && !cleanedPhone.startsWith('+31') && cleanedPhone.length > 2) {
     // Handles cases like 31612345678 or 31501234567
@@ -136,13 +136,12 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
   for (let i = 0; i < Math.min(allLines.length, 10); i++) {
     const currentLine = allLines[i];
-    if (!currentLine.trim()) continue;
+    if (!currentLine.trim()) continue; // Skip empty lines
 
     const tempDelimiter = detectDelimiter(currentLine);
     const parsedAsHeader = parseCsvLine(currentLine, tempDelimiter).map((h, idx) => {
         let cleanH = h.toLowerCase().trim();
         if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); // Remove BOM
-         // Remove surrounding quotes if present
         if (cleanH.startsWith('"') && cleanH.endsWith('"')) {
             cleanH = cleanH.substring(1, cleanH.length - 1);
         }
@@ -155,7 +154,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
         keywordFoundCount++;
       }
     }
-
+    // Prioritize 'email' as a strong indicator of a header, or a sufficient number of other keywords
     if (parsedAsHeader.includes('email') || keywordFoundCount >= 3) {
       headerLine = currentLine;
       actualHeaderRowIndex = i;
@@ -226,58 +225,53 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
     if (values.length !== headers.length && line.trim() !== '') {
         console.warn(`Column count mismatch: Expected ${headers.length}, got ${values.length}. Line: "${line}"`);
-        continue;
+        continue; // Skip lines with column count mismatch
     }
     if (values.length === 0 || values.every(v => v === '')) continue;
 
     const customer: Partial<ShopifyCustomerFormData> = {
       id: crypto.randomUUID(),
-      acceptsSmsMarketing: false,
+      acceptsSmsMarketing: false, // Default value
     };
 
     if (emailIdx !== -1) customer.email = values[emailIdx];
 
+    // Name parsing logic
     const magentoRawLastName = lastnameIdx !== -1 ? values[lastnameIdx] : '';
     const magentoContactPerson = contactPersonIdx !== -1 ? values[contactPersonIdx] : '';
     const magentoRawFirstName = firstnameIdx !== -1 ? values[firstnameIdx] : '';
 
     let finalFirstName = '';
-    let finalLastName = magentoRawLastName;
+    let finalLastName = magentoRawLastName; // Prioritize lastname column
 
-    if (magentoContactPerson && finalLastName) {
-        const contactPersonLower = magentoContactPerson.toLowerCase();
+    if (finalLastName && magentoContactPerson) {
+        // Try to derive firstname from contact_person by removing lastname
+        // Case-insensitive removal from the end of contact_person
+        const contactLower = magentoContactPerson.toLowerCase();
         const lastNameLower = finalLastName.toLowerCase();
         
-        // Attempt to remove last name from contact_person to get first name
-        // Handles cases like "Yu Hsueh" with last name "Hsueh" -> "Yu"
-        // Or "Hsueh, Yu" with last name "Hsueh" -> "Yu"
-        const potentialFirstName = magentoContactPerson.replace(new RegExp(`\\s*${escapeRegExp(finalLastName)}${escapeRegExp(finalLastName.endsWith(',') ? '' : ',?')}\\s*$`, 'i'), '').trim();
-        if (potentialFirstName && potentialFirstName.toLowerCase() !== contactPersonLower) {
-            finalFirstName = potentialFirstName.replace(/,$/,'').trim(); // remove trailing comma if any
-        } else {
-             // If last name is at the beginning of contact_person e.g. "Hsueh Yu"
-            const potentialFirstNameAlternative = magentoContactPerson.replace(new RegExp(`^${escapeRegExp(finalLastName)}\\s*${escapeRegExp(finalLastName.endsWith(',') ? '' : ',?')}\\s*`, 'i'), '').trim();
-            if (potentialFirstNameAlternative && potentialFirstNameAlternative.toLowerCase() !== contactPersonLower) {
-                 finalFirstName = potentialFirstNameAlternative.replace(/,$/,'').trim();
+        if (contactLower.endsWith(lastNameLower)) {
+            const potentialFirstName = magentoContactPerson.substring(0, magentoContactPerson.length - finalLastName.length).trim();
+            if (potentialFirstName) {
+                finalFirstName = potentialFirstName.replace(/,$/, '').trim(); // Remove trailing comma if any
             }
         }
     }
     
-    // If first name is still empty, try to derive from contact_person by splitting
-    if (!finalFirstName && magentoContactPerson) {
-        const parts = magentoContactPerson.split(/\s+/);
-        finalFirstName = parts[0];
-        if (!finalLastName && parts.length > 1) {
-            finalLastName = parts.slice(1).join(' ');
-        }
-    }
-
-    // Fallback to magentoRawFirstName if still no finalFirstName
+    // Fallback if firstname is still empty: use magentoRawFirstName
     if (!finalFirstName && magentoRawFirstName) {
         finalFirstName = magentoRawFirstName;
     }
-
-
+    
+    // Further fallback: if still no firstname but contact_person exists, and no lastname was found, split contact_person
+    if (!finalFirstName && magentoContactPerson && !finalLastName) {
+        const parts = magentoContactPerson.split(/\s+/);
+        finalFirstName = parts[0];
+        if (parts.length > 1) {
+            finalLastName = parts.slice(1).join(' ');
+        }
+    }
+    
     customer.firstName = finalFirstName;
     customer.lastName = finalLastName;
 
@@ -291,6 +285,7 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
     if (countryIdx !== -1 && values[countryIdx]) {
         const countryValue = values[countryIdx];
         customer.country = countryValue;
+        // Basic check for country code, can be improved with a list of valid codes
         if (countryValue?.length === 2 && countryValue === countryValue?.toUpperCase()) {
             customer.countryCode = countryValue;
         }
@@ -314,9 +309,10 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
 
     customer.tags = tagsArray.filter(tag => tag.split(':')[1]?.trim()).join(', ');
 
-    customer.acceptsMarketing = false;
+    customer.acceptsMarketing = false; // Default, can be changed by user
     // customer.taxExempt is set above if VAT number is present
 
+    // Only add customer if there's some identifying information
     if (customer.email || customer.firstName || customer.lastName || customer.company || customer.address1 || customer.phone) {
       customers.push(customer);
     }
@@ -325,12 +321,10 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   if (customers.length > 0) {
     return { type: 'customers_found', data: customers, message: `${customers.length} customer(s) loaded from the CSV. Review and edit if needed.` };
   } else {
-    if (mappableHeadersFound || headers.length > 0) {
+    if (mappableHeadersFound || headers.length > 0) { // Check if headers were found but no data
          return { type: 'no_customers_extracted', message: 'CSV headers were recognized, but no valid customer data rows could be extracted. Check if rows have essential info like email or names, and ensure data aligns with headers.' };
     }
+    // Generic no data extracted message if headers weren't even clear
     return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
   }
 };
-
-
-    
