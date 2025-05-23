@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2, User, Mail, Building, MapPin, Phone, Tag, FileText, Percent, MessageSquare } from 'lucide-react';
 import type { ShopifyCustomersFormData } from '@/schemas/customer';
+import { cn } from '@/lib/utils';
 
 interface CustomerEntryFormProps {
   control: Control<ShopifyCustomersFormData>;
@@ -49,7 +50,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Voornaam</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Jan" {...field} />
+                  <Input
+                    placeholder="e.g. Jan"
+                    {...field}
+                    className={cn(customerErrors?.firstName && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.firstName && <FormMessage>{customerErrors.firstName.message}</FormMessage>}
               </FormItem>
@@ -63,7 +68,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Achternaam</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. de Vries" {...field} />
+                  <Input
+                    placeholder="e.g. de Vries"
+                    {...field}
+                    className={cn(customerErrors?.lastName && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.lastName && <FormMessage>{customerErrors.lastName.message}</FormMessage>}
               </FormItem>
@@ -77,7 +86,12 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />E-mail</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="e.g. jan.devries@example.nl" {...field} />
+                  <Input
+                    type="email"
+                    placeholder="e.g. jan.devries@example.nl"
+                    {...field}
+                    className={cn(customerErrors?.email && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.email && <FormMessage>{customerErrors.email.message}</FormMessage>}
               </FormItem>
@@ -91,7 +105,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Bedrijf</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. De Vries BV" {...field} />
+                  <Input
+                    placeholder="e.g. De Vries BV"
+                    {...field}
+                    className={cn(customerErrors?.company && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.company && <FormMessage>{customerErrors.company.message}</FormMessage>}
               </FormItem>
@@ -105,7 +123,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Telefoonnummer</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. 0612345678" {...field} />
+                  <Input
+                    placeholder="e.g. 0612345678"
+                    {...field}
+                    className={cn(customerErrors?.phone && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.phone && <FormMessage>{customerErrors.phone.message}</FormMessage>}
               </FormItem>
@@ -122,7 +144,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem className="md:col-span-2 lg:col-span-3">
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 1</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Hoofdstraat 123" {...field} />
+                  <Input
+                    placeholder="e.g. Hoofdstraat 123"
+                    {...field}
+                    className={cn(customerErrors?.address1 && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.address1 && <FormMessage>{customerErrors.address1.message}</FormMessage>}
               </FormItem>
@@ -135,7 +161,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem className="md:col-span-2 lg:col-span-3">
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 2</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Appartement 4B" {...field} />
+                  <Input
+                    placeholder="e.g. Appartement 4B"
+                    {...field}
+                    className={cn(customerErrors?.address2 && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.address2 && <FormMessage>{customerErrors.address2.message}</FormMessage>}
               </FormItem>
@@ -148,7 +178,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Plaats</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Amsterdam" {...field} />
+                  <Input
+                    placeholder="e.g. Amsterdam"
+                    {...field}
+                    className={cn(customerErrors?.city && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.city && <FormMessage>{customerErrors.city.message}</FormMessage>}
               </FormItem>
@@ -161,7 +195,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provincie</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Noord-Holland" {...field} />
+                  <Input
+                    placeholder="e.g. Noord-Holland"
+                    {...field}
+                    className={cn(customerErrors?.province && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.province && <FormMessage>{customerErrors.province.message}</FormMessage>}
               </FormItem>
@@ -174,7 +212,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provinciencode</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. NH" {...field} />
+                  <Input
+                    placeholder="e.g. NH"
+                    {...field}
+                    className={cn(customerErrors?.provinceCode && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.provinceCode && <FormMessage>{customerErrors.provinceCode.message}</FormMessage>}
               </FormItem>
@@ -187,7 +229,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Postcode</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. 1012 AB" {...field} />
+                  <Input
+                    placeholder="e.g. 1012 AB"
+                    {...field}
+                    className={cn(customerErrors?.zip && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.zip && <FormMessage>{customerErrors.zip.message}</FormMessage>}
               </FormItem>
@@ -200,7 +246,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Land</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Nederland" {...field} />
+                  <Input
+                    placeholder="e.g. Nederland"
+                    {...field}
+                    className={cn(customerErrors?.country && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.country && <FormMessage>{customerErrors.country.message}</FormMessage>}
               </FormItem>
@@ -213,7 +263,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Landcode</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. NL" {...field} />
+                  <Input
+                    placeholder="e.g. NL"
+                    {...field}
+                    className={cn(customerErrors?.countryCode && "border-destructive focus-visible:ring-destructive")}
+                  />
                 </FormControl>
                 {customerErrors?.countryCode && <FormMessage>{customerErrors.countryCode.message}</FormMessage>}
               </FormItem>
@@ -228,7 +282,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             <FormItem className="mt-4">
               <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (komma-gescheiden)</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. vip, groothandel" {...field} />
+                <Input
+                  placeholder="e.g. vip, groothandel"
+                  {...field}
+                  className={cn(customerErrors?.tags && "border-destructive focus-visible:ring-destructive")}
+                />
               </FormControl>
               {customerErrors?.tags && <FormMessage>{customerErrors.tags.message}</FormMessage>}
             </FormItem>
@@ -242,7 +300,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             <FormItem className="mt-4">
               <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Notitie</FormLabel>
               <FormControl>
-                <Textarea placeholder="Notities over de klant..." className="min-h-[80px]" {...field} />
+                <Textarea
+                  placeholder="Notities over de klant..."
+                  className={cn("min-h-[80px]", customerErrors?.note && "border-destructive focus-visible:ring-destructive")}
+                  {...field}
+                />
               </FormControl>
               {customerErrors?.note && <FormMessage>{customerErrors.note.message}</FormMessage>}
             </FormItem>
@@ -259,6 +321,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                   <Checkbox
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    className={cn(customerErrors?.acceptsMarketing && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
                 <FormLabel className="font-normal flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert E-mailmarketing</FormLabel>
@@ -275,6 +338,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                   <Checkbox
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                     className={cn(customerErrors?.acceptsSmsMarketing && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
                 <FormLabel className="font-normal flex items-center"><MessageSquare className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert SMS Marketing</FormLabel>
@@ -291,6 +355,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                   <Checkbox
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    className={cn(customerErrors?.taxExempt && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
                 <FormLabel className="font-normal flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Belastingvrij</FormLabel>
@@ -303,3 +368,5 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
     </Card>
   );
 }
+
+    
