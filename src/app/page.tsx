@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 
 
 const PAGE_OPTIONS = [5, 20, 50, 100];
+const HINT_OPTIONS = ["data illustration", "friendly robot", "abstract design", "task complete", "customer focus", "empty results", "data visualization", "user profile"];
 
 export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
@@ -32,6 +33,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
+  const [randomImageHint, setRandomImageHint] = useState('empty state'); // Default hint
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -75,6 +77,11 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
+
+  // Effect to set random image hint on mount
+  useEffect(() => {
+    setRandomImageHint(HINT_OPTIONS[Math.floor(Math.random() * HINT_OPTIONS.length)]);
+  }, []);
 
 
   const addNewCustomer = () => {
@@ -260,7 +267,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              <Image src="https://placehold.co/300x200.png" alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint="empty state people" />
+              <Image src="https://placehold.co/300x200.png" alt="No customers" width={300} height={200} className="mx-auto mb-4 rounded-lg shadow-md" data-ai-hint={randomImageHint} />
               <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
               <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
             </div>
