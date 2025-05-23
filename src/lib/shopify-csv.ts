@@ -100,27 +100,29 @@ export const parseProductCsv = (csvString: string): ParseResult => {
 
   // Shopify specific header checks
   const shopifyTitleIdx = findHeaderIndex(['title']);
-  const shopifyPriceIdx = findHeaderIndex(['variant price', 'price']); // Shopify often uses "Variant Price"
-  const shopifySkuIdx = findHeaderIndex(['variant sku', 'sku']); // Shopify uses "Variant SKU"
+  const shopifyPriceIdx = findHeaderIndex(['variant price', 'price']); 
+  const shopifySkuIdx = findHeaderIndex(['variant sku', 'sku']); 
   const shopifyHandleIdx = findHeaderIndex(['handle']);
   const shopifyBodyHtmlIdx = findHeaderIndex(['body (html)']);
 
   // Magento specific header checks
-  const magentoSkuIdx = findHeaderIndex(['sku']); // Common for Magento
-  const magentoNameIdx = findHeaderIndex(['name']); // Common for Magento
-  const magentoPriceIdx = findHeaderIndex(['price']); // Common for Magento
+  const magentoSkuIdx = findHeaderIndex(['sku']); 
+  const magentoNameIdx = findHeaderIndex(['name']); 
+  const magentoPriceIdx = findHeaderIndex(['price']); 
   const magentoQtyIdx = findHeaderIndex(['qty', 'quantity']);
-  const magentoTypeIdIdx = findHeaderIndex(['type_id', 'product_type']); // Magento type
+  const magentoTypeIdIdx = findHeaderIndex(['type_id', 'product_type']); 
   const magentoCategoriesIdx = findHeaderIndex(['categories']);
-  const magentoStatusIdx = findHeaderIndex(['status', 'product_online', 'is_saleable']); // M2 status, M1 product_online/is_saleable
+  const magentoStatusIdx = findHeaderIndex(['status', 'product_online', 'is_saleable']); 
   const magentoVisibilityIdx = findHeaderIndex(['visibility']);
 
+  // More lenient Magento detection: primarily relies on 'sku' and 'name'.
+  const isLikelyMagento = magentoSkuIdx !== -1 && magentoNameIdx !== -1;
   const isLikelyShopify = (shopifyTitleIdx !== -1 && shopifyPriceIdx !== -1 && shopifySkuIdx !== -1) || shopifyHandleIdx !== -1 || shopifyBodyHtmlIdx !== -1;
-  const isLikelyMagento = magentoSkuIdx !== -1 && magentoNameIdx !== -1 && (magentoPriceIdx !== -1 || magentoQtyIdx !== -1 || magentoTypeIdIdx !== -1);
   
-  // Customer CSV detection (can be kept simple as before)
+  // Customer CSV detection
   const emailIdx = findHeaderIndex(['email']);
   const firstNameIdx = findHeaderIndex(['first name']);
+  // If it has customer headers AND is NOT identified as a Shopify or Magento product CSV, then classify as customer.
   if (emailIdx !== -1 && firstNameIdx !== -1 && !isLikelyShopify && !isLikelyMagento) {
     return { type: 'customers', message: 'This appears to be a customer CSV. This tool is designed for product CSVs. No data was imported.' };
   }
@@ -131,7 +133,6 @@ export const parseProductCsv = (csvString: string): ParseResult => {
 
   if (isLikelyMagento) {
     format = 'magento';
-    // Magento specific parsing logic
     const descIdx = findHeaderIndex(['description']);
     const imageIdx = findHeaderIndex(['image', 'base_image']);
     const vendorIdx = findHeaderIndex(['vendor', 'manufacturer']);
@@ -146,9 +147,10 @@ export const parseProductCsv = (csvString: string): ParseResult => {
       product.title = safeGet(values, magentoNameIdx);
       product.bodyHtml = safeGet(values, descIdx);
       const priceStr = safeGet(values, magentoPriceIdx);
-      if (priceStr) product.price = parseFloat(priceStr);
+      if (priceStr) product.price = parseFloat(priceStr); else product.price = 0; // Ensure price has a default if not found
       const qtyStr = safeGet(values, magentoQtyIdx);
-      if (qtyStr) product.inventoryQuantity = parseInt(qtyStr, 10);
+      if (qtyStr) product.inventoryQuantity = parseInt(qtyStr, 10); else product.inventoryQuantity = 0; // Ensure qty has a default
+      
       product.imageSrc = safeGet(values, imageIdx);
       product.tags = safeGet(values, magentoCategoriesIdx);
       
@@ -161,17 +163,21 @@ export const parseProductCsv = (csvString: string): ParseResult => {
       if (statusVal === '1' || statusVal === 'enabled' || statusVal === 'true') {
         product.published = true;
         product.status = 'active';
-      } else if (statusVal === '0' || statusVal === '2' /* M1 specific for product_online */ || statusVal === 'disabled' || statusVal === 'false') {
+      } else if (statusVal === '0' || statusVal === '2' || statusVal === 'disabled' || statusVal === 'false') {
         product.published = false;
         product.status = 'draft';
       } else {
-         product.published = true; // Default
-         product.status = 'active'; // Default
+         product.published = true; 
+         product.status = 'active'; 
       }
       
       const visibilityVal = safeGet(values, magentoVisibilityIdx);
-      if (visibilityVal === '1' || visibilityVal?.toLowerCase() === 'not visible individually') { // Magento 1 or 2
-         product.published = false; // Simplification
+      // Magento 1: 1 (Not Visible Individually), 2 (Catalog), 3 (Search), 4 (Catalog, Search)
+      // Magento 2: Visibility values are strings like "Not Visible Individually", "Catalog", "Search", "Catalog, Search"
+      // Simplified: if it's explicitly not visible individually, treat as unpublished for Shopify's "Published" field.
+      if (visibilityVal === '1' || visibilityVal?.toLowerCase() === 'not visible individually') {
+         product.published = false; 
+         if (product.status === 'active') product.status = 'draft'; // Align status if active but not visible
       }
 
       if (product.title || product.sku) {
@@ -179,12 +185,11 @@ export const parseProductCsv = (csvString: string): ParseResult => {
       }
     }
     if (products.length === 0 && lines.length > 0) {
-      parseMessage = "Magento CSV detected, but no products could be parsed. Check column names like 'sku', 'name', 'price'.";
+      parseMessage = "Magento CSV detected (based on 'sku' and 'name' headers), but no actual product rows could be parsed or essential data like title/sku was missing in rows. Please check product data integrity and column names like 'price', 'qty'.";
     }
 
   } else if (isLikelyShopify) {
     format = 'shopify';
-    // Shopify specific parsing logic (adapted from original)
     const bodyHtmlIdx = findHeaderIndex(['body (html)', 'description']);
     const vendorIdx = findHeaderIndex(['vendor']);
     const productTypeIdx = findHeaderIndex(['type', 'product type']);
@@ -208,10 +213,10 @@ export const parseProductCsv = (csvString: string): ParseResult => {
       if (productTypeIdx !== -1) product.productType = values[productTypeIdx];
       if (tagsIdx !== -1) product.tags = values[tagsIdx];
       if (publishedIdx !== -1) product.published = values[publishedIdx]?.toLowerCase() === 'true';
-      if (shopifyPriceIdx !== -1 && values[shopifyPriceIdx]) product.price = parseFloat(values[shopifyPriceIdx]);
+      if (shopifyPriceIdx !== -1 && values[shopifyPriceIdx]) product.price = parseFloat(values[shopifyPriceIdx]); else product.price = 0;
       if (shopifySkuIdx !== -1) product.sku = values[shopifySkuIdx];
       if (imageSrcIdx !== -1) product.imageSrc = values[imageSrcIdx];
-      if (inventoryQtyIdx !== -1 && values[inventoryQtyIdx]) product.inventoryQuantity = parseInt(values[inventoryQtyIdx], 10);
+      if (inventoryQtyIdx !== -1 && values[inventoryQtyIdx]) product.inventoryQuantity = parseInt(values[inventoryQtyIdx], 10); else product.inventoryQuantity = 0;
       if (requiresShippingIdx !== -1) product.requiresShipping = values[requiresShippingIdx]?.toLowerCase() === 'true';
       if (taxableIdx !== -1) product.taxable = values[taxableIdx]?.toLowerCase() === 'true';
       if (statusIdx !== -1 && ['active', 'draft', 'archived'].includes(values[statusIdx]?.toLowerCase())) {
@@ -233,9 +238,10 @@ export const parseProductCsv = (csvString: string): ParseResult => {
     return { type: 'products', data: products, format: format, message: parseMessage };
   }
   
-  if (lines.length === 0 && (isLikelyShopify || isLikelyMagento)) {
+  if (lines.length === 0 && (isLikelyMagento || isLikelyShopify)) {
       return { type: 'products', data: [], format: isLikelyMagento ? 'magento' : (isLikelyShopify ? 'shopify' : 'unknown_product_format'), message: 'CSV file contains only headers. No product data found.' };
   }
 
-  return { type: 'unknown_csv', message: parseMessage || 'The CSV format is not recognized as a Shopify or Magento product CSV.' };
+  return { type: 'unknown_csv', message: parseMessage || 'The CSV format is not recognized as a Shopify or Magento product CSV. Ensure it has key product columns like SKU and Name/Title.' };
 };
+
