@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label";
 
 
 const PAGE_OPTIONS = [5, 20, 50, 100];
-// Removed HINT_OPTIONS as it's no longer used
+
 
 export default function MagentoToShopifyCustomerCsvConverterPage() {
   const { toast } = useToast();
@@ -33,7 +33,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(PAGE_OPTIONS[0]);
   const [showAll, setShowAll] = useState<boolean>(false);
-  // Removed randomImageHint and randomPlaceholderUrl states as they are no longer used
 
 
   const formMethods = useForm<ShopifyCustomersFormData>({
@@ -77,8 +76,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
       setCurrentPage(newTotalPages > 0 ? newTotalPages : 1);
     }
   }, [totalItems, currentPage, itemsPerPage, showAll]);
-
-  // Removed useEffect for setting random image hint and placeholder URL as it's no longer used
 
 
   const addNewCustomer = () => {
@@ -241,7 +238,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 </Button>
                  {fields.length > 0 && (
                    <div className="flex items-center space-x-2">
-                    <Label htmlFor="items-per-page-select" className="text-sm font-medium">Show:</Label>
+                    <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total customers per page:</Label>
                     <Select
                       value={showAll ? 'all' : String(itemsPerPage)}
                       onValueChange={handleItemsPerPageChange}
@@ -266,7 +263,6 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
         <form onSubmit={handleSubmit(onFormSubmit)}>
           {fields.length === 0 && (
              <div className="text-center py-10">
-              {/* Removed Image component and related text */}
               <p className="text-xl text-muted-foreground">No customers loaded or added yet.</p>
               <p className="text-sm text-muted-foreground">Click "Import Customer CSV" or "Add New Customer" to get started.</p>
             </div>
