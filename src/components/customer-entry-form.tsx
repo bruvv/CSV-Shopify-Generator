@@ -50,7 +50,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />First Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. John" {...field} />
+                  <Input placeholder="e.g. Jan" {...field} />
                 </FormControl>
                 {customerErrors?.firstName && <FormMessage>{customerErrors.firstName.message}</FormMessage>}
               </FormItem>
@@ -64,7 +64,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Last Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Doe" {...field} />
+                  <Input placeholder="e.g. de Vries" {...field} />
                 </FormControl>
                 {customerErrors?.lastName && <FormMessage>{customerErrors.lastName.message}</FormMessage>}
               </FormItem>
@@ -78,7 +78,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Email</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="e.g. john.doe@example.com" {...field} />
+                  <Input type="email" placeholder="e.g. jan.devries@example.nl" {...field} />
                 </FormControl>
                 {customerErrors?.email && <FormMessage>{customerErrors.email.message}</FormMessage>}
               </FormItem>
@@ -92,7 +92,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Company</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Acme Corp" {...field} />
+                  <Input placeholder="e.g. De Vries BV" {...field} />
                 </FormControl>
                 {customerErrors?.company && <FormMessage>{customerErrors.company.message}</FormMessage>}
               </FormItem>
@@ -106,7 +106,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Phone</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. 555-1234" {...field} />
+                  <Input placeholder="e.g. 0612345678" {...field} />
                 </FormControl>
                 {customerErrors?.phone && <FormMessage>{customerErrors.phone.message}</FormMessage>}
               </FormItem>
@@ -123,7 +123,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem className="md:col-span-2 lg:col-span-3">
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 1</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. 123 Main St" {...field} />
+                  <Input placeholder="e.g. Hoofdstraat 123" {...field} />
                 </FormControl>
                 {customerErrors?.address1 && <FormMessage>{customerErrors.address1.message}</FormMessage>}
               </FormItem>
@@ -136,7 +136,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem className="md:col-span-2 lg:col-span-3">
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 2</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Apt 4B" {...field} />
+                  <Input placeholder="e.g. Appartement 4B" {...field} />
                 </FormControl>
                 {customerErrors?.address2 && <FormMessage>{customerErrors.address2.message}</FormMessage>}
               </FormItem>
@@ -149,7 +149,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />City</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Anytown" {...field} />
+                  <Input placeholder="e.g. Amsterdam" {...field} />
                 </FormControl>
                 {customerErrors?.city && <FormMessage>{customerErrors.city.message}</FormMessage>}
               </FormItem>
@@ -162,7 +162,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province/State</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. CA" {...field} />
+                  <Input placeholder="e.g. Noord-Holland" {...field} />
                 </FormControl>
                 {customerErrors?.province && <FormMessage>{customerErrors.province.message}</FormMessage>}
               </FormItem>
@@ -175,7 +175,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. CA" {...field} />
+                  <Input placeholder="e.g. NH" {...field} />
                 </FormControl>
                 {customerErrors?.provinceCode && <FormMessage>{customerErrors.provinceCode.message}</FormMessage>}
               </FormItem>
@@ -188,7 +188,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Zip/Postal Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. 90210" {...field} />
+                  <Input placeholder="e.g. 1012 AB" {...field} />
                 </FormControl>
                 {customerErrors?.zip && <FormMessage>{customerErrors.zip.message}</FormMessage>}
               </FormItem>
@@ -201,7 +201,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. United States" {...field} />
+                  <Input placeholder="e.g. Netherlands" {...field} />
                 </FormControl>
                 {customerErrors?.country && <FormMessage>{customerErrors.country.message}</FormMessage>}
               </FormItem>
@@ -214,7 +214,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
               <FormItem>
                 <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. US" {...field} />
+                  <Input placeholder="e.g. NL" {...field} />
                 </FormControl>
                 {customerErrors?.countryCode && <FormMessage>{customerErrors.countryCode.message}</FormMessage>}
               </FormItem>
@@ -229,7 +229,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             <FormItem className="mt-4">
               <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (comma-separated)</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. vip, wholesale" {...field} />
+                <Input placeholder="e.g. vip, groothandel" {...field} />
               </FormControl>
               {customerErrors?.tags && <FormMessage>{customerErrors.tags.message}</FormMessage>}
             </FormItem>
@@ -243,7 +243,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             <FormItem className="mt-4">
               <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Note</FormLabel>
               <FormControl>
-                <Textarea placeholder="Notes about the customer..." className="min-h-[80px]" {...field} />
+                <Textarea placeholder="Notities over de klant..." className="min-h-[80px]" {...field} />
               </FormControl>
               {customerErrors?.note && <FormMessage>{customerErrors.note.message}</FormMessage>}
             </FormItem>

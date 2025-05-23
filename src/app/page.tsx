@@ -11,9 +11,8 @@ import { Button } from '@/components/ui/button';
 import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, MailPlus } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-// Removed Image import as it's no longer used for the placeholder
 import {
   Select,
   SelectContent,
@@ -43,7 +42,7 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     mode: 'onChange',
   });
 
-  const { control, handleSubmit, reset, formState: { errors }, watch } = formMethods;
+  const { control, handleSubmit, reset, formState: { errors }, watch, setValue } = formMethods;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -204,6 +203,25 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
     setCurrentPage(1); // Reset to first page
   };
 
+  const handleSubscribeAll = () => {
+    if (allCustomers.length === 0) {
+      toast({
+        title: 'No Customers to Subscribe',
+        description: 'There are no customers loaded to subscribe to the newsletter.',
+        variant: 'default',
+      });
+      return;
+    }
+    allCustomers.forEach((_, index) => {
+      setValue(`customers.${index}.acceptsMarketing`, true, { shouldDirty: true, shouldValidate: true });
+    });
+    toast({
+      title: 'All Customers Subscribed',
+      description: 'All customers have been set to "Accepts Marketing".',
+    });
+  };
+
+
   return (
     <FormProvider {...formMethods}>
       <div className="min-h-screen container mx-auto p-4 md:p-8">
@@ -236,25 +254,30 @@ export default function MagentoToShopifyCustomerCsvConverterPage() {
                 <Button onClick={handleSubmit(onFormSubmit)} variant="secondary" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify CSV
                 </Button>
-                 {fields.length > 0 && (
-                   <div className="flex items-center space-x-2">
-                    <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total customers per page:</Label>
-                    <Select
-                      value={showAll ? 'all' : String(itemsPerPage)}
-                      onValueChange={handleItemsPerPageChange}
-                    >
-                      <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
-                        <SelectValue placeholder="Count" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAGE_OPTIONS.map(option => (
-                          <SelectItem key={option} value={String(option)}>{option}</SelectItem>
-                        ))}
-                        <SelectItem value="all">All</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                 )}
+                {fields.length > 0 && (
+                  <>
+                    <Button onClick={handleSubscribeAll} variant="outline">
+                      <MailPlus className="mr-2 h-5 w-5" /> Subscribe All to Newsletter
+                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total customers per page:</Label>
+                      <Select
+                        value={showAll ? 'all' : String(itemsPerPage)}
+                        onValueChange={handleItemsPerPageChange}
+                      >
+                        <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
+                          <SelectValue placeholder="Count" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAGE_OPTIONS.map(option => (
+                            <SelectItem key={option} value={String(option)}>{option}</SelectItem>
+                          ))}
+                          <SelectItem value="all">All</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
             </div>
         </div>
         
