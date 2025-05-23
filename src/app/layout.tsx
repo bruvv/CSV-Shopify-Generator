@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'CSV Shopify Generator',
-  description: 'Generate importable CSV files for Shopify products.',
+  title: 'Magento to Shopify CSV Converter',
+  description: 'Convert Magento product CSV files to Shopify importable format.',
 };
 
 export default function RootLayout({
