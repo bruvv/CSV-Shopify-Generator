@@ -22,18 +22,21 @@ interface ProductEntryFormProps {
   index: number; // This is the absolute index in the products array
   remove: (index: number) => void;
   errors: FieldErrors<ShopifyProductsFormData>;
-  productData: ShopifyProductFormData; 
+  productData: ShopifyProductFormData;
 }
 
 export function ProductEntryForm({ control, index, remove, errors, productData }: ProductEntryFormProps) {
   const productErrors = errors.products?.[index];
-  const isFirstOccurrenceOfHandle = !productData.isVariantRow; // For simple products, this will usually be true.
+  const formTitle = productData.isVariantRow
+    ? `Product Variant #${index + 1} (Option: ${productData.option1Value || 'N/A'}) for Handle: ${productData.handle}`
+    : `Product #${index + 1}${productData.title ? ` - ${productData.title}`: ''}`;
 
   return (
     <Card className="mb-6 shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
         <CardTitle className="text-xl font-semibold">
-            Product #{index + 1}{productData.title ? ` - ${productData.title}`: ''}{productData.variantSku ? ` (SKU: ${productData.variantSku})` : ''}
+            {formTitle}
+            {productData.variantSku ? ` (SKU: ${productData.variantSku})` : ''}
         </CardTitle>
         <Button
           type="button"
@@ -59,6 +62,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                     placeholder="e.g. unique-product-handle"
                     {...field}
                     className={cn(productErrors?.handle && "border-destructive focus-visible:ring-destructive")}
+                    disabled={productData.isVariantRow} // Handle should not change for variants
                   />
                 </FormControl>
                 {productErrors?.handle && <FormMessage>{productErrors.handle.message}</FormMessage>}
@@ -76,6 +80,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                     placeholder="e.g. Awesome T-Shirt"
                     {...field}
                     className={cn(productErrors?.title && "border-destructive focus-visible:ring-destructive")}
+                    disabled={productData.isVariantRow} // Title is blank for variant rows
                   />
                 </FormControl>
                 {productErrors?.title && <FormMessage>{productErrors.title.message}</FormMessage>}
@@ -94,6 +99,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                   placeholder="<p>Product description here...</p>"
                   className={cn("min-h-[100px]", productErrors?.bodyHtml && "border-destructive focus-visible:ring-destructive")}
                   {...field}
+                  disabled={productData.isVariantRow}
                 />
               </FormControl>
               {productErrors?.bodyHtml && <FormMessage>{productErrors.bodyHtml.message}</FormMessage>}
@@ -112,6 +118,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                         placeholder="e.g. MyBrand"
                         {...field}
                         className={cn(productErrors?.vendor && "border-destructive focus-visible:ring-destructive")}
+                        disabled={productData.isVariantRow}
                     />
                     </FormControl>
                     {productErrors?.vendor && <FormMessage>{productErrors.vendor.message}</FormMessage>}
@@ -129,6 +136,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                         placeholder="e.g. Apparel"
                         {...field}
                         className={cn(productErrors?.productType && "border-destructive focus-visible:ring-destructive")}
+                        disabled={productData.isVariantRow}
                     />
                     </FormControl>
                     {productErrors?.productType && <FormMessage>{productErrors.productType.message}</FormMessage>}
@@ -146,6 +154,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                         placeholder="e.g. new, sale, cotton"
                         {...field}
                         className={cn(productErrors?.tags && "border-destructive focus-visible:ring-destructive")}
+                        disabled={productData.isVariantRow}
                     />
                     </FormControl>
                     {productErrors?.tags && <FormMessage>{productErrors.tags.message}</FormMessage>}
@@ -154,9 +163,31 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
             />
          </div>
 
-        {/* Variant Specific Information - For simple products, these are primary details */}
-        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Product Details</h3>
+        {/* Options & Variant Specific Information */}
+        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Product Options & Variant Details</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <FormField
+                control={control}
+                name={`products.${index}.option1Name`}
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="flex items-center"><Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />Option1 Name</FormLabel>
+                    <FormControl><Input placeholder="e.g. Size or Title" {...field} className={cn(productErrors?.option1Name && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    {productErrors?.option1Name && <FormMessage>{productErrors.option1Name.message}</FormMessage>}
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={control}
+                name={`products.${index}.option1Value`}
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel className="flex items-center"><Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />Option1 Value</FormLabel>
+                    <FormControl><Input placeholder="e.g. Small or Default Title" {...field} className={cn(productErrors?.option1Value && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    {productErrors?.option1Value && <FormMessage>{productErrors.option1Value.message}</FormMessage>}
+                </FormItem>
+                )}
+            />
           <FormField
             control={control}
             name={`products.${index}.variantSku`}
@@ -238,34 +269,8 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
             )}
           />
         </div>
+        {/* Add Option2 and Option3 fields similarly if needed */}
 
-        {/* Options - For simple products, these are typically blank or "Title" / "Default Title" */}
-        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Product Options (if applicable)</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField
-                control={control}
-                name={`products.${index}.option1Name`}
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="flex items-center"><Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />Option1 Name</FormLabel>
-                    <FormControl><Input placeholder="e.g. Size or Title" {...field} className={cn(productErrors?.option1Name && "border-destructive focus-visible:ring-destructive")} /></FormControl>
-                    {productErrors?.option1Name && <FormMessage>{productErrors.option1Name.message}</FormMessage>}
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={control}
-                name={`products.${index}.option1Value`}
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="flex items-center"><Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />Option1 Value</FormLabel>
-                    <FormControl><Input placeholder="e.g. Small or Default Title" {...field} className={cn(productErrors?.option1Value && "border-destructive focus-visible:ring-destructive")} /></FormControl>
-                    {productErrors?.option1Value && <FormMessage>{productErrors.option1Value.message}</FormMessage>}
-                </FormItem>
-                )}
-            />
-        </div>
-        {/* Add Option2 and Option3 fields similarly if needed for some simple products or future variant handling */}
 
         <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Media & SEO</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -299,7 +304,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel className="flex items-center"><Search className="mr-2 h-4 w-4 text-muted-foreground" />SEO Title</FormLabel>
-                    <FormControl><Input placeholder="Max 70 characters e.g. Awesome Product Name" {...field} className={cn(productErrors?.seoTitle && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    <FormControl><Input placeholder="Max 70 characters e.g. Awesome Product Name" {...field} className={cn(productErrors?.seoTitle && "border-destructive focus-visible:ring-destructive")} disabled={productData.isVariantRow} /></FormControl>
                     {productErrors?.seoTitle && <FormMessage>{productErrors.seoTitle.message}</FormMessage>}
                 </FormItem>
                 )}
@@ -310,7 +315,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel className="flex items-center"><Search className="mr-2 h-4 w-4 text-muted-foreground" />SEO Description</FormLabel>
-                    <FormControl><Textarea placeholder="Max 320 characters. Briefly describe your product." {...field} className={cn("min-h-[80px]", productErrors?.seoDescription && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    <FormControl><Textarea placeholder="Max 320 characters. Briefly describe your product." {...field} className={cn("min-h-[80px]", productErrors?.seoDescription && "border-destructive focus-visible:ring-destructive")} disabled={productData.isVariantRow} /></FormControl>
                     {productErrors?.seoDescription && <FormMessage>{productErrors.seoDescription.message}</FormMessage>}
                 </FormItem>
                 )}
@@ -371,4 +376,3 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
     </Card>
   );
 }
-
