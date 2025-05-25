@@ -560,8 +560,9 @@ export default function CsvConverterPage() {
   const currentErrorIndices = isCustomerMode ? customerCurrentErrorIndices : productCurrentErrorIndices;
   const currentTestFilterIndices = isCustomerMode ? customerCurrentTestFilterIndices : productCurrentTestFilterIndices;
   const handleFindTestEntries = isCustomerMode ? handleFindCustomerTestEntries : handleFindProductTestEntries;
-  const entityName = isCustomerMode ? "Klant" : "Product";
-  const entityNamePlural = isCustomerMode ? "Klanten" : "Producten";
+  
+  const entityName = isCustomerMode ? "Customer" : "Product";
+  const entityNamePlural = isCustomerMode ? "Customers" : "Products";
 
 
   const actualItemsPerPage = showAll ? ( (isCustomerMode ? totalCustomerItemsForCurrentMode : totalProductItemsForCurrentMode) > 0 ? (isCustomerMode ? totalCustomerItemsForCurrentMode : totalProductItemsForCurrentMode) : 1) : itemsPerPage;
@@ -576,43 +577,43 @@ export default function CsvConverterPage() {
         <header className="mb-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <RefreshCw className="h-12 w-12 text-primary mr-3" />
-            <h1 className="text-4xl font-bold text-primary">Magento naar Shopify {entityNamePlural} CSV Converter</h1>
+            <h1 className="text-4xl font-bold text-primary">Magento to Shopify {entityNamePlural} CSV Converter</h1>
           </div>
            <p className="text-lg text-muted-foreground">
-            Upload uw Magento {entityName.toLowerCase()} CSV, bekijk en bewerk gepagineerde vermeldingen, en genereer vervolgens een importeerbaar Shopify {entityName.toLowerCase()} CSV-bestand.
+            Upload your Magento {entityName.toLowerCase()} CSV, view and edit paginated entries, then generate an importable Shopify {entityName.toLowerCase()} CSV file.
             {displayMode === 'errors' && currentErrorIndices.length > 0 && (
-                <span className="block mt-2 font-semibold text-destructive">Momenteel {currentErrorIndices.length} {entityName.toLowerCase()}(en) met fouten weergegeven.</span>
+                <span className="block mt-2 font-semibold text-destructive">Currently displaying {currentErrorIndices.length} {entityName.toLowerCase()}(s) with errors.</span>
             )}
             {displayMode === 'errors' && currentErrorIndices.length === 0 && fields.length > 0 && !isLoading && (
-                <span className="block mt-2 font-semibold text-green-600">Alle eerder gevonden fouten lijken te zijn opgelost!</span>
+                <span className="block mt-2 font-semibold text-green-600">All previously found errors seem to be resolved!</span>
             )}
             {displayMode === 'test' && currentTestFilterIndices.length > 0 && (
-                <span className="block mt-2 font-semibold text-blue-600">Momenteel {currentTestFilterIndices.length} {entityName.toLowerCase()}(en) die overeenkomen met 'test'-filter weergegeven.</span>
+                <span className="block mt-2 font-semibold text-blue-600">Currently displaying {currentTestFilterIndices.length} {entityName.toLowerCase()}(s) matching 'test' filter.</span>
             )}
             {displayMode === 'test' && currentTestFilterIndices.length === 0 && fields.length > 0 && !isLoading && (
-                <span className="block mt-2 font-semibold text-muted-foreground">Geen {entityName.toLowerCase()}(en) gevonden die overeenkomen met 'test'-filter.</span>
+                <span className="block mt-2 font-semibold text-muted-foreground">No {entityName.toLowerCase()}(s) found matching 'test' filter.</span>
             )}
           </p>
         </header>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'customer' | 'product')} className="w-full mb-6">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="customer" className="flex items-center gap-2"><Users className="h-5 w-5"/> Klanten</TabsTrigger>
-                <TabsTrigger value="product" className="flex items-center gap-2"><ShoppingBag className="h-5 w-5"/> Producten</TabsTrigger>
+                <TabsTrigger value="customer" className="flex items-center gap-2"><Users className="h-5 w-5"/> Customers</TabsTrigger>
+                <TabsTrigger value="product" className="flex items-center gap-2"><ShoppingBag className="h-5 w-5"/> Products</TabsTrigger>
             </TabsList>
         </Tabs>
 
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold mb-4 text-primary">Acties voor {entityNamePlural}</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-primary">Actions for {entityNamePlural}</h2>
             <div className="flex flex-wrap items-center gap-4">
                  {!isCustomerMode && (
                   <div className="flex flex-col space-y-1 w-full">
                     <div className="flex items-center space-x-2">
-                      <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
+                      <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Base Image URL:</Label>
                       <Input
                         id="magento-base-image-url"
                         type="url"
-                        placeholder="https://uw-magento-winkel.com/media/catalog/product/"
+                        placeholder="https://your-magento-store.com/media/catalog/product/"
                         value={magentoBaseImageUrl}
                         onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
                         className="w-full md:w-96"
@@ -620,7 +621,7 @@ export default function CsvConverterPage() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center">
-                       <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" /> Vul dit veld in vóór het importeren van een product-CSV.
+                       <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" /> Fill this field before importing a product CSV.
                     </p>
                   </div>
                 )}
@@ -628,9 +629,9 @@ export default function CsvConverterPage() {
                     onClick={() => !isLoading && fileInputRef.current?.click()} 
                     variant="outline" 
                     disabled={isLoading || (!isCustomerMode && magentoBaseImageUrl.trim() === '')}
-                    title={!isCustomerMode && magentoBaseImageUrl.trim() === '' ? "Voer eerst de Magento Basis Afbeeldings-URL in" : `Importeer ${entityName} CSV`}
+                    title={!isCustomerMode && magentoBaseImageUrl.trim() === '' ? "Enter Magento Base Image URL first" : `Import ${entityName} CSV`}
                 >
-                    <Upload className="mr-2 h-5 w-5" /> Importeer {entityName} CSV
+                    <Upload className="mr-2 h-5 w-5" /> Import {entityName} CSV
                 </Button>
                 <input
                     type="file"
@@ -641,7 +642,7 @@ export default function CsvConverterPage() {
                     disabled={isLoading || (!isCustomerMode && magentoBaseImageUrl.trim() === '')}
                 />
                 <Button onClick={addNewEntry} variant="default" disabled={isLoading}>
-                    <PlusCircle className="mr-2 h-5 w-5" /> Nieuwe {entityName} Handmatig Toevoegen
+                    <PlusCircle className="mr-2 h-5 w-5" /> Add New {entityName} Manually
                 </Button>
                 <Button
                     onClick={handleSubmit(onFormSubmit)}
@@ -649,49 +650,49 @@ export default function CsvConverterPage() {
                     className="bg-accent hover:bg-accent/90 text-accent-foreground"
                     disabled={isLoading || fields.length === 0}
                 >
-                    <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify {entityName} CSV
+                    <Download className="mr-2 h-5 w-5" /> Generate & Download Shopify {entityName} CSV
                 </Button>
                
                  {(fields.length > 0 ) && !isLoading && (
                   <>
                     <div className="flex items-center space-x-2">
-                      <Label htmlFor="items-per-page-select" className="text-sm font-medium">Totaal {entityNamePlural.toLowerCase()} per pagina:</Label>
+                      <Label htmlFor="items-per-page-select" className="text-sm font-medium">Total {entityNamePlural.toLowerCase()} per page:</Label>
                       <Select
                         value={showAll ? 'all' : String(itemsPerPage)}
                         onValueChange={handleItemsPerPageChange}
                         disabled={isLoading}
                       >
                         <SelectTrigger id="items-per-page-select" className="w-[100px] h-10">
-                          <SelectValue placeholder="Aantal" />
+                          <SelectValue placeholder="Count" />
                         </SelectTrigger>
                         <SelectContent>
                           {PAGE_OPTIONS.map(option => (
                             <SelectItem key={option} value={String(option)}>{option}</SelectItem>
                           ))}
-                          <SelectItem value="all">Alles</SelectItem>
+                          <SelectItem value="all">All</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                      <Button onClick={handleFindTestEntries} variant="outline" disabled={isLoading || fields.length === 0}>
-                        <SearchCheck className="mr-2 h-5 w-5" /> Vind 'Test' Vermeldingen
+                        <SearchCheck className="mr-2 h-5 w-5" /> Find 'Test' Entries
                     </Button>
                     {displayMode === 'errors' && currentErrorIndices.length > 0 && (
-                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
+                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Show all {entityNamePlural.toLowerCase()} ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentErrorIndices.length > 0 && (
-                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Show only {entityName.toLowerCase()}(s) with errors ({currentErrorIndices.length})</Button>
                     )}
                     {displayMode === 'test' && (
-                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
+                        <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Show all {entityNamePlural.toLowerCase()} ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentTestFilterIndices.length > 0 && ( 
-                         <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
+                         <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Show only 'test' entries ({currentTestFilterIndices.length})</Button>
                     )}
                      {displayMode === 'test' && currentErrorIndices.length > 0 && ( 
-                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Show {entityName.toLowerCase()}(s) with errors ({currentErrorIndices.length})</Button>
                     )}
                      {displayMode === 'errors' && currentTestFilterIndices.length > 0 && (
-                        <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
+                        <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Show only 'test' entries ({currentTestFilterIndices.length})</Button>
                     )}
                   </>
                 )}
@@ -711,30 +712,30 @@ export default function CsvConverterPage() {
           <form onSubmit={handleSubmit(onFormSubmit)}> 
             {fields.length === 0 && displayMode === 'all' && (
                <div className="text-center py-10">
-                <p className="text-xl text-muted-foreground">Nog geen {entityNamePlural.toLowerCase()} geladen of toegevoegd.</p>
-                <p className="text-sm text-muted-foreground">Klik op "Importeer {entityName} CSV" of "Nieuwe {entityName} Handmatig Toevoegen" om te beginnen.</p>
+                <p className="text-xl text-muted-foreground">No {entityNamePlural.toLowerCase()} loaded or added yet.</p>
+                <p className="text-sm text-muted-foreground">Click "Import {entityName} CSV" or "Add New {entityName} Manually" to start.</p>
               </div>
             )}
             {itemsToPaginate.length === 0 && displayMode === 'errors' && (
                  <div className="text-center py-10">
-                 <p className="text-xl text-muted-foreground">Geen {entityNamePlural.toLowerCase()} met validatiefouten gevonden.</p>
-                 <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()}</Button>
+                 <p className="text-xl text-muted-foreground">No {entityNamePlural.toLowerCase()} with validation errors found.</p>
+                 <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Show all {entityNamePlural.toLowerCase()}</Button>
                </div>
             )}
             {itemsToPaginate.length === 0 && displayMode === 'test' && (
                  <div className="text-center py-10">
-                 <p className="text-xl text-muted-foreground">Geen {entityNamePlural.toLowerCase()} gevonden die overeenkomen met de 'test' filter.</p>
-                 <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()}</Button>
+                 <p className="text-xl text-muted-foreground">No {entityNamePlural.toLowerCase()} found matching the 'test' filter.</p>
+                 <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Show all {entityNamePlural.toLowerCase()}</Button>
                </div>
             )}
              {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length > 0 && (currentErrorIndices.length > 0 || currentTestFilterIndices.length >0) && (
                 <div className="text-center py-10">
-                    <p className="text-xl text-muted-foreground">Alle {entityNamePlural.toLowerCase()} zijn verborgen door de huidige filterinstellingen.</p>
+                    <p className="text-xl text-muted-foreground">All {entityNamePlural.toLowerCase()} are hidden by the current filter settings.</p>
                     {currentErrorIndices.length > 0 && (
-                        <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
+                        <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Show only {entityName.toLowerCase()}(s) with errors ({currentErrorIndices.length})</Button>
                     )}
                      {currentTestFilterIndices.length > 0 && (
-                        <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
+                        <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Show only 'test' entries ({currentTestFilterIndices.length})</Button>
                     )}
                 </div>
             )}

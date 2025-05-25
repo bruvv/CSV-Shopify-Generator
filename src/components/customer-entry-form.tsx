@@ -30,7 +30,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
   return (
     <Card className="mb-6 shadow-lg">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="text-xl font-semibold">Klant #{index + 1}</CardTitle>
+        <CardTitle className="text-xl font-semibold">Customer #{index + 1}</CardTitle>
         <Button
           type="button"
           variant="destructive"
@@ -48,10 +48,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.firstName`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Voornaam</FormLabel>
+                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />First Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Jan"
+                    placeholder="e.g. John"
                     {...field}
                     className={cn(customerErrors?.firstName && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -66,10 +66,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.lastName`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Achternaam</FormLabel>
+                <FormLabel className="flex items-center"><User className="mr-2 h-4 w-4 text-muted-foreground" />Last Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. de Vries"
+                    placeholder="e.g. Doe"
                     {...field}
                     className={cn(customerErrors?.lastName && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -84,11 +84,11 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.email`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />E-mail</FormLabel>
+                <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Email</FormLabel>
                 <FormControl>
                   <Input
                     type="email"
-                    placeholder="e.g. jan.devries@example.nl"
+                    placeholder="e.g. john.doe@example.com"
                     {...field}
                     className={cn(customerErrors?.email && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -103,10 +103,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.company`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Bedrijf</FormLabel>
+                <FormLabel className="flex items-center"><Building className="mr-2 h-4 w-4 text-muted-foreground" />Company</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. De Vries BV"
+                    placeholder="e.g. Doe Inc."
                     {...field}
                     className={cn(customerErrors?.company && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -121,10 +121,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.phone`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Telefoonnummer</FormLabel>
+                <FormLabel className="flex items-center"><Phone className="mr-2 h-4 w-4 text-muted-foreground" />Phone Number</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. 0612345678"
+                    placeholder="e.g. +1 555-123-4567"
                     {...field}
                     className={cn(customerErrors?.phone && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -135,17 +135,17 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           />
         </div>
 
-        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Adres</h3>
+        <h3 className="text-lg font-medium mt-6 mb-2 text-primary">Address</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
            <FormField
             control={control}
             name={`customers.${index}.address1`}
             render={({ field }) => (
               <FormItem className="md:col-span-2 lg:col-span-3">
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 1</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 1</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Hoofdstraat 123"
+                    placeholder="e.g. 123 Main St"
                     {...field}
                     className={cn(customerErrors?.address1 && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -159,10 +159,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.address2`}
             render={({ field }) => (
               <FormItem className="md:col-span-2 lg:col-span-3">
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Adresregel 2</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Address Line 2</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Appartement 4B"
+                    placeholder="e.g. Apt 4B"
                     {...field}
                     className={cn(customerErrors?.address2 && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -176,10 +176,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.city`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Plaats</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />City</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Amsterdam"
+                    placeholder="e.g. New York"
                     {...field}
                     className={cn(customerErrors?.city && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -193,10 +193,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.province`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provincie</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Noord-Holland"
+                    placeholder="e.g. California"
                     {...field}
                     className={cn(customerErrors?.province && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -210,10 +210,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.provinceCode`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Provinciencode</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Province Code</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. NH"
+                    placeholder="e.g. CA"
                     {...field}
                     className={cn(customerErrors?.provinceCode && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -227,10 +227,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.zip`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Postcode</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Zip/Postal Code</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. 1012 AB"
+                    placeholder="e.g. 10001"
                     {...field}
                     className={cn(customerErrors?.zip && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -244,10 +244,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.country`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Land</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. Nederland"
+                    placeholder="e.g. United States"
                     {...field}
                     className={cn(customerErrors?.country && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -261,10 +261,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
             name={`customers.${index}.countryCode`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Landcode</FormLabel>
+                <FormLabel className="flex items-center"><MapPin className="mr-2 h-4 w-4 text-muted-foreground" />Country Code</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="e.g. NL"
+                    placeholder="e.g. US"
                     {...field}
                     className={cn(customerErrors?.countryCode && "border-destructive focus-visible:ring-destructive")}
                   />
@@ -280,10 +280,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           name={`customers.${index}.tags`}
           render={({ field }) => (
             <FormItem className="mt-4">
-              <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (komma-gescheiden)</FormLabel>
+              <FormLabel className="flex items-center"><Tag className="mr-2 h-4 w-4 text-muted-foreground" />Tags (comma-separated)</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="e.g. vip, groothandel"
+                  placeholder="e.g. vip, wholesale"
                   {...field}
                   className={cn(customerErrors?.tags && "border-destructive focus-visible:ring-destructive")}
                 />
@@ -298,10 +298,10 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
           name={`customers.${index}.note`}
           render={({ field }) => (
             <FormItem className="mt-4">
-              <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Notitie</FormLabel>
+              <FormLabel className="flex items-center"><FileText className="mr-2 h-4 w-4 text-muted-foreground" />Note</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Notities over de klant..."
+                  placeholder="Notes about the customer..."
                   className={cn("min-h-[80px]", customerErrors?.note && "border-destructive focus-visible:ring-destructive")}
                   {...field}
                 />
@@ -324,7 +324,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                     className={cn(customerErrors?.acceptsMarketing && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
-                <FormLabel className="font-normal flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert E-mailmarketing</FormLabel>
+                <FormLabel className="font-normal flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground" />Accepts Email Marketing</FormLabel>
                 {customerErrors?.acceptsMarketing && <FormMessage>{customerErrors.acceptsMarketing.message}</FormMessage>}
               </FormItem>
             )}
@@ -341,7 +341,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                      className={cn(customerErrors?.acceptsSmsMarketing && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
-                <FormLabel className="font-normal flex items-center"><MessageSquare className="mr-2 h-4 w-4 text-muted-foreground" />Accepteert SMS Marketing</FormLabel>
+                <FormLabel className="font-normal flex items-center"><MessageSquare className="mr-2 h-4 w-4 text-muted-foreground" />Accepts SMS Marketing</FormLabel>
                 {customerErrors?.acceptsSmsMarketing && <FormMessage>{customerErrors.acceptsSmsMarketing.message}</FormMessage>}
               </FormItem>
             )}
@@ -358,7 +358,7 @@ export function CustomerEntryForm({ control, index, remove, errors }: CustomerEn
                     className={cn(customerErrors?.taxExempt && "border-destructive focus-visible:ring-destructive")}
                   />
                 </FormControl>
-                <FormLabel className="font-normal flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Belastingvrij</FormLabel>
+                <FormLabel className="font-normal flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Tax Exempt</FormLabel>
                 {customerErrors?.taxExempt && <FormMessage>{customerErrors.taxExempt.message}</FormMessage>}
               </FormItem>
             )}

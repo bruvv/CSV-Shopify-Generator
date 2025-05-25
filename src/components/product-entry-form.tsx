@@ -376,3 +376,4 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
     </Card>
   );
 }
+
