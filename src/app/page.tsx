@@ -633,7 +633,12 @@ export default function CsvConverterPage() {
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-primary">Acties voor {entityNamePlural}</h2>
             <div className="flex flex-wrap items-center gap-4">
-                <Button onClick={() => !isLoading && fileInputRef.current?.click()} variant="outline" disabled={isLoading}>
+                <Button 
+                    onClick={() => !isLoading && fileInputRef.current?.click()} 
+                    variant="outline" 
+                    disabled={isLoading || (!isCustomerMode && magentoBaseImageUrl.trim() === '')}
+                    title={!isCustomerMode && magentoBaseImageUrl.trim() === '' ? "Voer eerst de Magento Basis Afbeeldings-URL in" : `Importeer ${entityName} CSV`}
+                >
                     <Upload className="mr-2 h-5 w-5" /> Importeer {entityName} CSV
                 </Button>
                 <input
@@ -642,7 +647,7 @@ export default function CsvConverterPage() {
                     onChange={handleFileUpload}
                     accept=".csv"
                     className="hidden"
-                    disabled={isLoading}
+                    disabled={isLoading || (!isCustomerMode && magentoBaseImageUrl.trim() === '')}
                 />
                 <Button onClick={addNewEntry} variant="default" disabled={isLoading}>
                     <PlusCircle className="mr-2 h-5 w-5" /> Nieuwe {entityName} Handmatig Toevoegen
@@ -672,7 +677,7 @@ export default function CsvConverterPage() {
                     <Input
                       id="magento-base-image-url"
                       type="url"
-                      placeholder="https://uw-magento-winkel.com/media/catalog/product"
+                      placeholder="https://uw-magento-winkel.com/media/catalog/product/"
                       value={magentoBaseImageUrl}
                       onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
                       className="w-96"
@@ -806,3 +811,5 @@ export default function CsvConverterPage() {
     </FormProvider>
   );
 }
+
+    
