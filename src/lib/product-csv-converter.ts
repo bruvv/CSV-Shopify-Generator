@@ -72,17 +72,31 @@ const extractTagsFromCategories = (categoriesString: string | undefined): string
 };
 
 const buildFullImageUrl = (imagePath: string | undefined, baseUrl: string | undefined): string => {
-  if (!imagePath) return '';
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath; // Already a full URL
+  if (!imagePath || imagePath.trim() === '') {
+    // console.log("Image path is empty or undefined.");
+    return '';
   }
-  if (!baseUrl) return imagePath; // No base URL provided, return original path
 
-  // Ensure no double slashes
+  // If imagePath is already a full URL, return it directly
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    // console.log(`Image path "${imagePath}" is already absolute. Using it directly.`);
+    return imagePath;
+  }
+
+  // If no baseUrl is provided, we can't construct a full URL for a relative path
+  if (!baseUrl || baseUrl.trim() === '') {
+    console.warn(`No base URL provided for relative image path: "${imagePath}". Returning path as is. This might not work for Shopify import.`);
+    return imagePath;
+  }
+
+  // At this point, we have a relative imagePath and a baseUrl.
+  // Combine baseUrl and imagePath
   const trimmedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   const trimmedImagePath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
   
-  return `${trimmedBaseUrl}/${trimmedImagePath}`;
+  const finalUrl = `${trimmedBaseUrl}/${trimmedImagePath}`;
+  // console.log(`Constructed image URL: "${finalUrl}" from base "${baseUrl}" and path "${imagePath}"`);
+  return finalUrl;
 };
 
 
@@ -115,6 +129,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     return -1;
   }
 
+  // Core Magento fields
   const skuIdx = findHeaderIndex(['sku']);
   const nameIdx = findHeaderIndex(['name']);
   const descriptionIdx = findHeaderIndex(['description']);
@@ -124,15 +139,15 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   const categoriesIdx = findHeaderIndex(['categories']);
   const baseImageIdx = findHeaderIndex(['base_image', 'image']);
   const productTypeIdx = findHeaderIndex(['product_type', 'type_id']);
-  const visibilityIdx = findHeaderIndex(['visibility']);
-  const taxClassIdx = findHeaderIndex(['tax_class_name', 'tax_class_id']); // Added tax_class_id as alias
+  const visibilityIdx = findHeaderIndex(['visibility']); // e.g., "Catalog, Search", "Not Visible Individually"
+  const taxClassIdx = findHeaderIndex(['tax_class_name', 'tax_class_id']); // e.g., "Taxable Goods"
   const weightIdx = findHeaderIndex(['weight']);
   const metaTitleIdx = findHeaderIndex(['meta_title']);
   const metaDescriptionIdx = findHeaderIndex(['meta_description']);
-  const attributeSetCodeIdx = findHeaderIndex(['attribute_set_code']);
-  const productOnlineIdx = findHeaderIndex(['product_online', 'status']); // Added status as alias for product_online
+  const attributeSetCodeIdx = findHeaderIndex(['attribute_set_code']); // Can be used for Vendor or Product Type
+  const productOnlineIdx = findHeaderIndex(['product_online', 'status']); // Magento status: 1 (Enabled), 2 (Disabled)
 
-  if (skuIdx === -1 ) { // Only SKU is strictly necessary for a basic product row
+  if (skuIdx === -1 ) { 
     return { type: 'parse_error', message: 'CSV must contain "sku" column for product import.' };
   }
 
@@ -150,6 +165,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     const magentoProductType = productTypeIdx !== -1 ? values[productTypeIdx] : 'simple';
     if (magentoProductType !== 'simple') {
       // For now, only process simple products. Configurable products will be handled later.
+      // TODO: Add configurable product handling
       continue;
     }
 
@@ -159,53 +175,58 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     const product: Partial<ShopifyProductFormData> = {
       id: crypto.randomUUID(),
       handle: sku, 
-      title: nameIdx !== -1 ? values[nameIdx] : sku, // Use SKU as fallback for title
+      title: nameIdx !== -1 ? values[nameIdx] : sku,
       bodyHtml: descriptionIdx !== -1 ? values[descriptionIdx] : (shortDescriptionIdx !== -1 ? values[shortDescriptionIdx] : ''),
       variantSku: sku,
       variantPrice: priceIdx !== -1 ? parseFloat(values[priceIdx]) : 0,
       variantInventoryQty: qtyIdx !== -1 ? parseInt(values[qtyIdx], 10) : 0,
       imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? values[baseImageIdx] : undefined, magentoBaseImageUrl),
       tags: categoriesIdx !== -1 ? extractTagsFromCategories(values[categoriesIdx]) : '',
+      // Attempt to derive productType and vendor from attribute_set_code
       productType: attributeSetCodeIdx !== -1 ? values[attributeSetCodeIdx] : '', 
-      vendor: attributeSetCodeIdx !== -1 ? values[attributeSetCodeIdx].split(' ')[0] : '', 
+      vendor: attributeSetCodeIdx !== -1 ? values[attributeSetCodeIdx].split(' ')[0] : '', // Taking first word as vendor
       
-      published: true, 
-      variantTaxable: true, 
+      published: true, // Default to true, adjust based on visibility/status
+      variantTaxable: true, // Default to true, adjust based on tax_class
       variantWeight: weightIdx !== -1 ? parseFloat(values[weightIdx]) : 0,
-      variantWeightUnit: 'g', 
+      variantWeightUnit: 'g', // Shopify default is g, Magento weight is often in store's base unit. Assume grams for now.
       magentoProductType: magentoProductType,
-      isVariantRow: false, 
+      isVariantRow: false, // For simple products, this is always the main row.
 
-      seoTitle: metaTitleIdx !== -1 ? values[metaTitleIdx] : '',
-      seoDescription: metaDescriptionIdx !== -1 ? values[metaDescriptionIdx] : '',
+      seoTitle: metaTitleIdx !== -1 ? values[metaTitleIdx] : (nameIdx !== -1 ? values[nameIdx] : sku), // Fallback to name/sku for SEO title
+      seoDescription: metaDescriptionIdx !== -1 ? values[metaDescriptionIdx] : (shortDescriptionIdx !== -1 ? values[shortDescriptionIdx] : ''), // Fallback for SEO desc
       
-      option1Name: 'Title', // Default for simple products in Shopify
-      option1Value: 'Default Title', // Default for simple products
+      // Shopify defaults for simple products
+      option1Name: 'Title', 
+      option1Value: 'Default Title', 
+      variantRequiresShipping: true,
+      imagePosition: 1,
     };
     
+    // Handle Magento visibility
+    // Common values: "Not Visible Individually", "Catalog", "Search", "Catalog, Search"
+    // Magento numeric visibility: 1 (Not Visible), 2 (Catalog), 3 (Search), 4 (Catalog, Search)
     if (visibilityIdx !== -1) {
         const magentoVisibility = values[visibilityIdx].toLowerCase();
-        if (magentoVisibility === "not visible individually") {
+        if (magentoVisibility === "not visible individually" || magentoVisibility === "1") {
              product.published = false; 
-        } else if (magentoVisibility.includes("catalog") && magentoVisibility.includes("search")) {
-            product.published = true;
-        } else if (magentoVisibility === "1") { // Some exports use 1 for Not Visible Individually
-            product.published = false;
-        } else if (magentoVisibility === "4") { // 4 for Catalog, Search
-             product.published = true;
+        } else if (magentoVisibility.includes("catalog") || magentoVisibility.includes("search") || magentoVisibility === "4" || magentoVisibility === "2" || magentoVisibility === "3") {
+            product.published = true; // If it's visible in catalog or search, it's published
         }
     }
+
     // Magento 'status' (product_online): 1 = Enabled, 2 = Disabled
     // If product_online is 2 (Disabled), then it's not published, overriding visibility.
     if (productOnlineIdx !== -1 && (values[productOnlineIdx] === '2' || values[productOnlineIdx].toLowerCase() === 'disabled')) { 
         product.published = false;
     }
 
-
+    // Handle tax_class_name
     if (taxClassIdx !== -1) {
         const taxValue = values[taxClassIdx].toLowerCase();
-        // Common Magento tax class names/IDs. Adjust if yours are different.
-        product.variantTaxable = taxValue.includes('taxable goods') || taxValue === '2'; 
+        // Common Magento tax class names/IDs that imply taxable.
+        // Shopify 'Taxable' is true if it's not tax-exempt.
+        product.variantTaxable = !(taxValue.includes('none') || taxValue.includes('exempt') || taxValue === '0');
     }
 
     products.push(product);
@@ -241,22 +262,22 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
     p.title,
     p.bodyHtml,
     p.vendor,
-    '', // Product Category
+    '', // Product Category - Shopify recommends using their predefined categories. Mapping this is complex.
     p.productType, 
     p.tags,
     p.published ? 'TRUE' : 'FALSE', 
-    p.option1Name,
-    p.option1Value,
+    p.option1Name, // For simple products, usually "Title"
+    p.option1Value, // For simple products, usually "Default Title"
     p.option2Name,
     p.option2Value,
     p.option3Name,
     p.option3Value,
     p.variantSku,
-    String(p.variantWeight ?? 0), 
-    'shopify', // Variant Inventory Tracker 
+    String(p.variantWeight ?? 0), // Shopify expects grams
+    p.variantInventoryQty && p.variantInventoryQty > 0 ? 'shopify' : '', // Variant Inventory Tracker 
     String(p.variantInventoryQty ?? 0), 
-    'deny', 
-    'manual', 
+    'deny', // Variant Inventory Policy (deny or continue)
+    'manual', // Variant Fulfillment Service
     String(p.variantPrice ?? 0), 
     p.variantCompareAtPrice ? String(p.variantCompareAtPrice) : '', 
     p.variantRequiresShipping ? 'TRUE' : 'FALSE', 
@@ -264,18 +285,18 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
     '', // Variant Barcode
     p.imageSrc, 
     String(p.imagePosition ?? 1), 
-    p.imageAltText, 
+    p.imageAltText || p.title, // Use title as fallback for alt text
     'FALSE', // Gift Card
-    p.seoTitle, 
+    p.seoTitle || p.title, // Use title as fallback for SEO title
     p.seoDescription, 
     '', '', '', '', '', '', '', '', '', '', '', '', '', // Google Shopping fields
     p.imageSrc, // Variant Image (often same as main image for simple products/first variant)
-    p.variantWeightUnit, 
+    p.variantWeightUnit || 'g', 
     '', // Variant Tax Code
     '', // Cost per item
     '', // Price / International
     '', // Compare At Price / International
-    p.published ? 'active' : 'draft' 
+    p.published ? 'active' : 'draft' // Status: active, archived, draft
   ]);
 
   return arrayToCsv(shopifyHeaders, csvData);
