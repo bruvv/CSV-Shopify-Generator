@@ -373,7 +373,7 @@ export default function CsvConverterPage() {
     setProductDisplayMode('all');
     appendProduct({
       id: crypto.randomUUID(), handle: '', title: '', bodyHtml: '', vendor: '', productType: '',
-      tags: '', published: true, option1Name: 'Title', option1Value: 'Default Title', option2Name: '', option2Value: '',
+      tags: '', published: true, option1Name: '', option1Value: '', option2Name: '', option2Value: '',
       option3Name: '', option3Value: '', variantSku: '', variantPrice: 0, variantInventoryQty: 0,
       imageSrc: '', imageAltText: '', seoTitle: '', seoDescription: '', magentoProductType: 'simple', isVariantRow: false,
     });
@@ -432,8 +432,8 @@ export default function CsvConverterPage() {
             productType: p.productType || '',
             tags: p.tags || '',
             published: p.published ?? true,
-            option1Name: p.option1Name || 'Title', 
-            option1Value: p.option1Value || 'Default Title', 
+            option1Name: p.option1Name || '',
+            option1Value: p.option1Value || '',
             option2Name: p.option2Name || '',
             option2Value: p.option2Value || '',
             option3Name: p.option3Name || '',
