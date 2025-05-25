@@ -16,7 +16,7 @@ import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { ProductEntryForm } from '@/components/product-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft, Image as ImageIcon, MailPlus, MailMinus } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft, Image as ImageIcon, MailPlus, MailMinus, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -312,20 +312,19 @@ export default function CsvConverterPage() {
           } as ShopifyCustomerFormData));
 
           resetCustomerForm({ customers: newCustomersToSet });
-          await new Promise(resolve => setTimeout(resolve, 0)); // Allow state to update
+          await new Promise(resolve => setTimeout(resolve, 0)); 
           const isValid = await triggerCustomerForm();
 
           let tempErrorIndices: number[] = [];
           if (!isValid && customerFormMethods.formState.errors.customers) {
-            const customerErrors = customerFormMethods.formState.errors.customers as any[]; // Type assertion
+            const customerErrors = customerFormMethods.formState.errors.customers as any[]; 
             newCustomersToSet.forEach((_, i) => {
               if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
                 tempErrorIndices.push(i);
               }
             });
           }
-          // setCustomerCurrentErrorIndices is handled by useEffect based on formState
-
+          
           if (tempErrorIndices.length > 0) {
             setCustomerDisplayMode('errors');
             setCustomerCurrentPage(1);
@@ -336,7 +335,6 @@ export default function CsvConverterPage() {
             if (result.type === 'customers_found' && newCustomersToSet.length > 0 && isValid) {
               toast({ title: 'Customer CSV Imported', description: `${newCustomersToSet.length} customer(s) loaded and valid.` });
             } else if (result.type === 'customers_found' && newCustomersToSet.length > 0 && !isValid) {
-              // This case should be covered by the tempErrorIndices check above
               toast({ title: 'Imported with Validation Issues', description: 'Check form for errors. Errors have been highlighted.', variant: 'destructive' });
             } else if (result.type === 'no_customers_extracted') {
               toast({ title: 'Import Note', description: result.message });
@@ -395,7 +393,7 @@ export default function CsvConverterPage() {
     currentCustomers.forEach((_, index) => {
       setCustomerValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldValidate: true, shouldDirty: true });
     });
-    setAllCustomersSubscribed(targetSubscriptionStatus); // Optimistically update UI
+    setAllCustomersSubscribed(targetSubscriptionStatus); 
     toast({
       title: targetSubscriptionStatus ? "All Customers Subscribed" : "All Customers Unsubscribed",
       description: `Marketing preference updated for ${currentCustomers.length} customer(s).`
@@ -453,7 +451,7 @@ export default function CsvConverterPage() {
       reader.onload = async (e) => {
         try {
           const csvString = e.target?.result as string;
-          const currentBaseUrl = magentoBaseImageUrlRef.current; // Use the ref here
+          const currentBaseUrl = magentoBaseImageUrlRef.current; 
           const result: ParseProductResult = parseMagentoProductCsv(csvString, currentBaseUrl); 
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
@@ -492,18 +490,17 @@ export default function CsvConverterPage() {
           } as ShopifyProductFormData));
 
           resetProductForm({ products: newProductsToSet });
-          await new Promise(resolve => setTimeout(resolve, 0)); // Allow state to update
+          await new Promise(resolve => setTimeout(resolve, 0)); 
           const isValid = await triggerProductForm();
 
           let tempErrorIndices: number[] = [];
            if (!isValid && productFormMethods.formState.errors.products) {
-            const productErrors = productFormMethods.formState.errors.products as any[]; // Type assertion
+            const productErrors = productFormMethods.formState.errors.products as any[]; 
             newProductsToSet.forEach((_, i) => {
               if (productErrors[i] && Object.keys(productErrors[i]!).length > 0) tempErrorIndices.push(i);
             });
           }
-          // setProductCurrentErrorIndices is handled by useEffect
-
+          
           if (tempErrorIndices.length > 0) {
             setProductDisplayMode('errors');
             setProductCurrentPage(1);
@@ -633,6 +630,25 @@ export default function CsvConverterPage() {
         <div className="mb-6 p-6 bg-card rounded-lg shadow-md">
             <h2 className="text-2xl font-semibold mb-4 text-primary">Acties voor {entityNamePlural}</h2>
             <div className="flex flex-wrap items-center gap-4">
+                 {!isCustomerMode && (
+                  <div className="flex flex-col space-y-1 w-full md:w-auto">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
+                      <Input
+                        id="magento-base-image-url"
+                        type="url"
+                        placeholder="https://uw-magento-winkel.com/media/catalog/product/"
+                        value={magentoBaseImageUrl}
+                        onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
+                        className="w-full md:w-96"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center">
+                       <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" /> Vul dit veld in vóór het importeren van een product-CSV.
+                    </p>
+                  </div>
+                )}
                 <Button 
                     onClick={() => !isLoading && fileInputRef.current?.click()} 
                     variant="outline" 
@@ -671,20 +687,7 @@ export default function CsvConverterPage() {
                       {allCustomersSubscribed ? "Schrijf Iedereen Uit Nieuwsbrief" : "Schrijf Iedereen In Nieuwsbrief"}
                     </Button>
                 )}
-                {!isCustomerMode && (
-                  <div className="flex items-center space-x-2">
-                    <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
-                    <Input
-                      id="magento-base-image-url"
-                      type="url"
-                      placeholder="https://uw-magento-winkel.com/media/catalog/product/"
-                      value={magentoBaseImageUrl}
-                      onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
-                      className="w-96"
-                      disabled={isLoading}
-                    />
-                  </div>
-                )}
+               
                  {(fields.length > 0 ) && !isLoading && (
                   <>
                     <div className="flex items-center space-x-2">
