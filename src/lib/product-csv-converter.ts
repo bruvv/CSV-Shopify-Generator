@@ -87,7 +87,6 @@ const buildFullImageUrl = (imagePath: string | undefined, baseUrl: string | unde
     return imagePath;
   }
 
-  // At this point, imagePath is relative and not empty.
   if (!baseUrl || baseUrl.trim() === '') {
     console.warn(`[buildFullImageUrl] Condition 3: Base URL is not provided or is empty for relative imagePath: "${imagePath}". Shopify might not be able to import this image. Returning original relative imagePath as fallback.`);
     return imagePath;
@@ -98,7 +97,7 @@ const buildFullImageUrl = (imagePath: string | undefined, baseUrl: string | unde
   const trimmedImagePath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
 
   const finalUrl = `${trimmedBaseUrl}/${trimmedImagePath}`;
-  // console.log(`[buildFullImageUrl] CONSTRUCTED URL: "${finalUrl}" (from baseUrl: "${trimmedBaseUrl}" and imagePath: "${trimmedImagePath}")`);
+  console.log(`[buildFullImageUrl] CONSTRUCTED URL: "${finalUrl}" (from baseUrl: "${trimmedBaseUrl}" and imagePath: "${trimmedImagePath}")`);
   return finalUrl;
 };
 
@@ -168,7 +167,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     const rowData: Record<string, string> = {};
     headers.forEach((header, i) => rowData[header] = values[i]);
 
-    const type = rowData[headers[productTypeIdx]]?.toLowerCase();
+    const type = productTypeIdx !== -1 ? rowData[headers[productTypeIdx]]?.toLowerCase() : 'simple'; // Default to simple if no type column
     if (type === 'simple') {
       magentoSimpleProducts.set(rowData[headers[skuIdx]], rowData);
     } else if (type === 'configurable') {
@@ -182,7 +181,14 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   for (const mConfig of magentoConfigurableProducts) {
     const configSku = mConfig[headers[skuIdx]];
     const configName = mConfig[headers[nameIdx]] || configSku;
-    const option1NameFromLabel = (mConfig[headers[configurableVariationLabelsIdx]] || '').split('=')[1]?.trim() || 'Option';
+    
+    let option1NameFromLabel = 'Option'; // Default option name
+    if (configurableVariationLabelsIdx !== -1 && mConfig[headers[configurableVariationLabelsIdx]]) {
+        const labelParts = mConfig[headers[configurableVariationLabelsIdx]].split('=');
+        if (labelParts.length > 0 && labelParts[0].trim()) { // Use the key part of "key=Value"
+            option1NameFromLabel = labelParts[0].trim();
+        }
+    }
 
 
     const mainProductData: Partial<ShopifyProductFormData> = {
@@ -190,26 +196,25 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
       handle: configSku,
       title: configName,
       bodyHtml: mConfig[headers[descriptionIdx]] || mConfig[headers[shortDescriptionIdx]] || '',
-      vendor: mConfig[headers[attributeSetCodeIdx]]?.split(' ')[0] || '',
-      productType: mConfig[headers[attributeSetCodeIdx]] || '',
+      vendor: attributeSetCodeIdx !== -1 ? mConfig[headers[attributeSetCodeIdx]]?.split(' ')[0] || '' : '',
+      productType: attributeSetCodeIdx !== -1 ? mConfig[headers[attributeSetCodeIdx]] || '' : '',
       tags: categoriesIdx !== -1 ? extractTagsFromCategories(mConfig[headers[categoriesIdx]]) : '',
-      published: (mConfig[headers[visibilityIdx]]?.toLowerCase() !== "not visible individually" && mConfig[headers[visibilityIdx]]?.toLowerCase() !== "1") && (mConfig[headers[productOnlineIdx]] !== '2' && mConfig[headers[productOnlineIdx]]?.toLowerCase() !== 'disabled'),
-      variantPrice: priceIdx !== -1 && mConfig[headers[priceIdx]] ? parseFloat(mConfig[headers[priceIdx]]) : 0, // Configurable price as default
-      variantInventoryQty: 0, // Configurable usually doesn't have its own stock
-      variantTaxable: taxClassIdx !== -1 ? !(mConfig[headers[taxClassIdx]]?.toLowerCase().includes('none') || mConfig[headers[taxClassIdx]]?.toLowerCase() === '0') : true,
+      published: (visibilityIdx !== -1 ? !(mConfig[headers[visibilityIdx]]?.toLowerCase().includes("not visible")) : true) &&
+                 (productOnlineIdx !== -1 ? (mConfig[headers[productOnlineIdx]] !== '2' && mConfig[headers[productOnlineIdx]]?.toLowerCase() !== 'disabled') : true),
+      variantPrice: priceIdx !== -1 && mConfig[headers[priceIdx]] ? parseFloat(mConfig[headers[priceIdx]]) : 0,
+      variantInventoryQty: 0, 
+      variantTaxable: taxClassIdx !== -1 ? !(mConfig[headers[taxClassIdx]]?.toLowerCase().includes('none') || mConfig[headers[taxClassIdx]] === '0') : true,
       variantWeight: weightIdx !== -1 && mConfig[headers[weightIdx]] ? parseFloat(mConfig[headers[weightIdx]]) : 0,
       imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mConfig[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
-      seoTitle: mConfig[headers[metaTitleIdx]] || configName,
-      seoDescription: mConfig[headers[metaDescriptionIdx]] || mConfig[headers[shortDescriptionIdx]] || '',
+      imagePosition: 1,
+      seoTitle: metaTitleIdx !== -1 ? mConfig[headers[metaTitleIdx]] || configName : configName,
+      seoDescription: metaDescriptionIdx !== -1 ? mConfig[headers[metaDescriptionIdx]] || mConfig[headers[shortDescriptionIdx]] || '' : mConfig[headers[shortDescriptionIdx]] || '',
       magentoProductType: 'configurable',
       isVariantRow: false,
-      option1Name: option1NameFromLabel, // Set option name on main product
-      // Option1Value will be set by the first variant, or "Default Title" if no variants. But Shopify expects it on variant lines.
-      // For the main product row in Shopify, if it has options, Option1 Name is set, Option1 Value might be the first variant's value or blank.
-      // Let's set Option1Value based on the first variant, Shopify seems to handle it.
+      option1Name: option1NameFromLabel,
     };
     
-    const variationsStr = mConfig[headers[configurableVariationsIdx]];
+    const variationsStr = configurableVariationsIdx !== -1 ? mConfig[headers[configurableVariationsIdx]] : '';
     let firstVariantProcessed = false;
 
     if (variationsStr) {
@@ -218,71 +223,72 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
         const attributes = variation.split(',');
         let simpleSku: string | undefined;
         let optionValue: string | undefined;
+        
+        // The option key from configurable_variation_labels (e.g., 'colors_christian')
+        const optionKeyFromConfigLabel = option1NameFromLabel;
+
 
         attributes.forEach(attr => {
           const [key, value] = attr.split('=');
-          if (key.trim().toLowerCase() === 'sku') simpleSku = value.trim();
-          // The option key (e.g., 'colors_christian') should match the key from configurable_variation_labels
-          const optionKeyFromLabel = (mConfig[headers[configurableVariationLabelsIdx]] || '').split('=')[0]?.trim();
-          if (key.trim() === optionKeyFromLabel) optionValue = value.trim();
+          if (key && value) { // Ensure both key and value exist
+            if (key.trim().toLowerCase() === 'sku') simpleSku = value.trim();
+            // Match the attribute key with the derived option name
+            if (key.trim() === optionKeyFromConfigLabel) optionValue = value.trim();
+          }
         });
         
         if (simpleSku && optionValue) {
           const mSimple = magentoSimpleProducts.get(simpleSku);
           if (mSimple) {
             if (!firstVariantProcessed) {
-                mainProductData.option1Value = optionValue; // Set main product's Option1Value to the first variant's value
-                mainProductData.variantPrice = priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : 0;
-                mainProductData.variantSku = simpleSku; // Main product row in Shopify CSV takes SKU of first variant
+                mainProductData.option1Value = optionValue; 
+                mainProductData.variantPrice = priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : (mainProductData.variantPrice || 0);
+                mainProductData.variantSku = simpleSku; 
                 mainProductData.variantInventoryQty = qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0;
-                mainProductData.variantWeight = weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : 0;
+                mainProductData.variantWeight = weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : (mainProductData.variantWeight || 0);
+                // Use simple product's image if available, otherwise keep configurable's image
                 mainProductData.imageSrc = buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl) || mainProductData.imageSrc;
+                mainProductData.imagePosition = 1;
                 firstVariantProcessed = true;
-                shopifyProducts.push(mainProductData); // Add main product data now
+                shopifyProducts.push(mainProductData); 
             }
-             // For subsequent variants, or if the first variant is the ONLY variant, create a new row.
-            // Shopify expects the first variant's details on the main product line,
-            // and then *additional* variant rows if more than one variant exists.
-            // OR, if only one variant, that variant IS the main line.
-            // The current approach is: main line gets first variant details. If more variants, add them as new rows.
-
-            // If this is NOT the first variant, create a new row for it.
+             
             if (shopifyProducts.length === 0 || shopifyProducts[shopifyProducts.length-1].handle !== configSku || shopifyProducts[shopifyProducts.length-1].variantSku !== simpleSku) {
                  const variantProductData: Partial<ShopifyProductFormData> = {
                     id: crypto.randomUUID(),
                     handle: configSku,
-                    title: '', // Blank for variant rows
+                    title: '', 
                     bodyHtml: '',
                     vendor: '',
                     productType: '',
                     tags: '',
-                    published: mSimple[headers[visibilityIdx]]?.toLowerCase() !== "not visible individually" && mSimple[headers[visibilityIdx]]?.toLowerCase() !== "1", // Variants can have own published status
+                    published: (visibilityIdx !== -1 ? !(mSimple[headers[visibilityIdx]]?.toLowerCase().includes("not visible")) : true) &&
+                               (productOnlineIdx !== -1 ? (mSimple[headers[productOnlineIdx]] !== '2' && mSimple[headers[productOnlineIdx]]?.toLowerCase() !== 'disabled') : true),
                     option1Name: option1NameFromLabel,
                     option1Value: optionValue,
                     variantSku: simpleSku,
                     variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : 0,
                     variantInventoryQty: qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0,
-                    variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || mSimple[headers[taxClassIdx]]?.toLowerCase() === '0') : true,
+                    variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || mSimple[headers[taxClassIdx]] === '0') : true,
                     variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : 0,
                     imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
+                    imagePosition: shopifyProducts.filter(p => p.handle === configSku).length + 1, // Increment position for variant images
                     seoTitle: '',
                     seoDescription: '',
-                    magentoProductType: 'simple_variant', // Custom type to denote it's part of a configurable
+                    magentoProductType: 'simple_variant', 
                     isVariantRow: true,
                 };
                 shopifyProducts.push(variantProductData);
             }
-            magentoSimpleProducts.delete(simpleSku); // Mark as processed
+            magentoSimpleProducts.delete(simpleSku); 
           }
         }
       }
     }
-    // If no variants were processed (e.g. configurable_variations was empty or malformed, but it was a configurable product)
-    // Add the main product data with default option values
     if (!firstVariantProcessed) {
-        mainProductData.option1Name = 'Title';
+        mainProductData.option1Name = mainProductData.option1Name || 'Title'; // Keep derived or use Title
         mainProductData.option1Value = 'Default Title';
-        mainProductData.variantSku = configSku; // Fallback SKU
+        mainProductData.variantSku = configSku; 
         shopifyProducts.push(mainProductData);
     }
   }
@@ -295,20 +301,22 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
       handle: sku,
       title: simpleName,
       bodyHtml: mSimple[headers[descriptionIdx]] || mSimple[headers[shortDescriptionIdx]] || '',
-      vendor: mSimple[headers[attributeSetCodeIdx]]?.split(' ')[0] || '',
-      productType: mSimple[headers[attributeSetCodeIdx]] || '',
+      vendor: attributeSetCodeIdx !== -1 ? mSimple[headers[attributeSetCodeIdx]]?.split(' ')[0] || '' : '',
+      productType: attributeSetCodeIdx !== -1 ? mSimple[headers[attributeSetCodeIdx]] || '' : '',
       tags: categoriesIdx !== -1 ? extractTagsFromCategories(mSimple[headers[categoriesIdx]]) : '',
-      published: (mSimple[headers[visibilityIdx]]?.toLowerCase() !== "not visible individually" && mSimple[headers[visibilityIdx]]?.toLowerCase() !== "1") && (mSimple[headers[productOnlineIdx]] !== '2' && mSimple[headers[productOnlineIdx]]?.toLowerCase() !== 'disabled'),
+      published: (visibilityIdx !== -1 ? !(mSimple[headers[visibilityIdx]]?.toLowerCase().includes("not visible")) : true) &&
+                 (productOnlineIdx !== -1 ? (mSimple[headers[productOnlineIdx]] !== '2' && mSimple[headers[productOnlineIdx]]?.toLowerCase() !== 'disabled') : true),
       option1Name: 'Title',
       option1Value: 'Default Title',
       variantSku: sku,
       variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : 0,
       variantInventoryQty: qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0,
-      variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || mSimple[headers[taxClassIdx]]?.toLowerCase() === '0') : true,
+      variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || mSimple[headers[taxClassIdx]] === '0') : true,
       variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : 0,
       imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
-      seoTitle: mSimple[headers[metaTitleIdx]] || simpleName,
-      seoDescription: mSimple[headers[metaDescriptionIdx]] || mSimple[headers[shortDescriptionIdx]] || '',
+      imagePosition: 1,
+      seoTitle: metaTitleIdx !== -1 ? mSimple[headers[metaTitleIdx]] || simpleName : simpleName,
+      seoDescription: metaDescriptionIdx !== -1 ? mSimple[headers[metaDescriptionIdx]] || mSimple[headers[shortDescriptionIdx]] || '' : mSimple[headers[shortDescriptionIdx]] || '',
       magentoProductType: 'simple',
       isVariantRow: false,
     };
@@ -342,19 +350,13 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
   ];
 
   const csvData = products.map(p => {
-    // For variant rows (isVariantRow is true), certain fields should be blank as per Shopify spec
     const title = p.isVariantRow ? '' : p.title;
     const bodyHtml = p.isVariantRow ? '' : p.bodyHtml;
     const vendor = p.isVariantRow ? '' : p.vendor;
-    const productType = p.isVariantRow ? '' : p.productType; // Shopify 'Type' column
+    const productType = p.isVariantRow ? '' : p.productType;
     const tags = p.isVariantRow ? '' : p.tags;
-    // Published can be set per variant in some Shopify setups, but often it's on main product.
-    // For CSV, it's often just on the main product line, or True/False for each line.
-    // The 'Status' column (active/draft/archived) is often preferred for overall product visibility.
-    // The 'Published' column in Shopify's CSV is a True/False for web visibility.
-    // Let's assume 'Published' applies to the line item.
     const publishedStatus = p.published ? 'TRUE' : 'FALSE';
-    const shopifyStatus = p.published ? 'active' : 'draft';
+    const shopifyStatus = p.published ? 'active' : 'draft'; // Shopify Status column
 
 
     return [
@@ -362,44 +364,43 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
         title,
         bodyHtml,
         vendor,
-        '', // Product Category - Shopify has its own taxonomy, usually set in Admin
+        '', // Product Category - Shopify auto-assigns or set in Admin. Not typically in basic CSV.
         productType,
         tags,
-        publishedStatus,
+        publishedStatus, // Published column (TRUE/FALSE)
         p.option1Name,
         p.option1Value,
-        p.option2Name,
-        p.option2Value,
-        p.option3Name,
-        p.option3Value,
+        p.option2Name || '',
+        p.option2Value || '',
+        p.option3Name || '',
+        p.option3Value || '',
         p.variantSku,
-        String(p.variantWeight ?? 0), // Variant Grams
-        p.variantInventoryQty && p.variantInventoryQty > 0 ? 'shopify' : '', // Variant Inventory Tracker
-        String(p.variantInventoryQty ?? 0), // Variant Inventory Qty
-        'deny', // Variant Inventory Policy
-        'manual', // Variant Fulfillment Service
-        String(p.variantPrice ?? 0), // Variant Price
-        p.variantCompareAtPrice ? String(p.variantCompareAtPrice) : '', // Variant Compare At Price
-        p.variantRequiresShipping ? 'TRUE' : 'FALSE', // Variant Requires Shipping
-        p.variantTaxable ? 'TRUE' : 'FALSE', // Variant Taxable
+        String(p.variantWeight ?? 0), 
+        p.variantInventoryQty && p.variantInventoryQty > 0 ? 'shopify' : '', 
+        String(p.variantInventoryQty ?? 0), 
+        'deny', 
+        'manual', 
+        String(p.variantPrice ?? 0), 
+        p.variantCompareAtPrice ? String(p.variantCompareAtPrice) : '',
+        p.variantRequiresShipping ? 'TRUE' : 'FALSE', 
+        p.variantTaxable ? 'TRUE' : 'FALSE', 
         '', // Variant Barcode
-        p.imageSrc, // Image Src (for the main product or this specific variant)
-        p.isVariantRow ? '' : String(p.imagePosition ?? 1), // Image Position (usually for main product image)
-        p.imageAltText || p.title, // Image Alt Text
-        'FALSE', // Gift Card
-        p.isVariantRow ? '' : (p.seoTitle || p.title), // SEO Title
-        p.isVariantRow ? '' : p.seoDescription, // SEO Description
+        p.imageSrc, 
+        String(p.imagePosition ?? 1),
+        p.isVariantRow ? '' : (p.imageAltText || p.title), // Alt text only for main product image row
+        'FALSE', 
+        p.isVariantRow ? '' : (p.seoTitle || p.title), 
+        p.isVariantRow ? '' : p.seoDescription, 
         '', '', '', '', '', '', '', '', '', '', '', '', '', // Google Shopping fields
-        p.imageSrc, // Variant Image (can be same as main or different)
-        p.variantWeightUnit || 'g', // Variant Weight Unit
+        p.isVariantRow ? p.imageSrc : '', // Variant Image (only for variant rows if different from main)
+        p.variantWeightUnit || 'g', 
         '', // Variant Tax Code
         '', // Cost per item
         '', // Price / International
         '', // Compare At Price / International
-        shopifyStatus // Status (active or draft)
+        shopifyStatus // Status column (active/draft)
     ];
   });
 
   return arrayToCsv(shopifyHeaders, csvData);
 };
-

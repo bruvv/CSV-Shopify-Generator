@@ -16,7 +16,7 @@ import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { ProductEntryForm } from '@/components/product-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft, Image as ImageIcon } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft, Image as ImageIcon, MailPlus, MailMinus } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -46,6 +46,8 @@ export default function CsvConverterPage() {
   const [customerDisplayMode, setCustomerDisplayMode] = useState<DisplayMode>('all');
   const [customerCurrentErrorIndices, setCustomerCurrentErrorIndices] = useState<number[]>([]);
   const [customerCurrentTestFilterIndices, setCustomerCurrentTestFilterIndices] = useState<number[]>([]);
+  const [allCustomersSubscribed, setAllCustomersSubscribed] = useState(false);
+
 
   // Product specific state
   const productFileInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +59,11 @@ export default function CsvConverterPage() {
   const [productCurrentErrorIndices, setProductCurrentErrorIndices] = useState<number[]>([]);
   const [productCurrentTestFilterIndices, setProductCurrentTestFilterIndices] = useState<number[]>([]);
   const [magentoBaseImageUrl, setMagentoBaseImageUrl] = useState<string>('');
+  const magentoBaseImageUrlRef = useRef<string>(magentoBaseImageUrl);
+
+  useEffect(() => {
+    magentoBaseImageUrlRef.current = magentoBaseImageUrl;
+  }, [magentoBaseImageUrl]);
 
 
   const customerFormMethods = useForm<ShopifyCustomersFormData>({
@@ -79,7 +86,19 @@ export default function CsvConverterPage() {
     watch: watchCustomerForm,
     trigger: triggerCustomerForm,
     getValues: getCustomerValues,
+    setValue: setCustomerValue,
   } = customerFormMethods;
+
+  const watchedCustomers = watchCustomerForm("customers");
+
+  useEffect(() => {
+    if (watchedCustomers && watchedCustomers.length > 0) {
+      const allSub = watchedCustomers.every(c => c.acceptsMarketing);
+      setAllCustomersSubscribed(allSub);
+    } else {
+      setAllCustomersSubscribed(false);
+    }
+  }, [watchedCustomers]);
 
   const { fields: customerFields, append: appendCustomer, remove: removeCustomer } = useFieldArray({
     control: customerControl,
@@ -106,21 +125,22 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (customerFormState.errors.customers && customerFields.length > 0) {
       const indices: number[] = [];
-      for (let i = 0; i < customerFields.length; i++) {
-        if (customerFormState.errors.customers[i] && Object.keys(customerFormState.errors.customers[i]!).length > 0) {
+      (customerFormState.errors.customers as any[]).forEach((errorObj, i) => {
+        if (errorObj && Object.keys(errorObj).length > 0) {
           indices.push(i);
         }
-      }
+      });
       setCustomerCurrentErrorIndices(indices);
     } else {
       setCustomerCurrentErrorIndices([]);
     }
   }, [customerFormState.errors.customers, customerFields]);
 
+
   useEffect(() => {
     if (customerDisplayMode === 'errors' && customerCurrentErrorIndices.length === 0 && customerFields.length > 0 && !customerIsLoading) {
       setCustomerDisplayMode('all');
-      toast({ title: "All Customer Errors Fixed!", description: "Displaying all customers." });
+      // toast({ title: "All Customer Errors Fixed!", description: "Displaying all customers." });
       setCustomerCurrentPage(1);
     }
   }, [customerDisplayMode, customerCurrentErrorIndices, customerFields.length, customerIsLoading, toast]);
@@ -129,11 +149,11 @@ export default function CsvConverterPage() {
    useEffect(() => {
     if (productFormState.errors.products && productFields.length > 0) {
       const indices: number[] = [];
-      for (let i = 0; i < productFields.length; i++) {
-        if (productFormState.errors.products[i] && Object.keys(productFormState.errors.products[i]!).length > 0) {
+      (productFormState.errors.products as any[]).forEach((errorObj, i) => {
+        if (errorObj && Object.keys(errorObj).length > 0) {
           indices.push(i);
         }
-      }
+      });
       setProductCurrentErrorIndices(indices);
     } else {
       setProductCurrentErrorIndices([]);
@@ -143,7 +163,7 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (productDisplayMode === 'errors' && productCurrentErrorIndices.length === 0 && productFields.length > 0 && !productIsLoading) {
       setProductDisplayMode('all');
-      toast({ title: "All Product Errors Fixed!", description: "Displaying all products." });
+      // toast({ title: "All Product Errors Fixed!", description: "Displaying all products." });
       setProductCurrentPage(1);
     }
   }, [productDisplayMode, productCurrentErrorIndices, productFields.length, productIsLoading, toast]);
@@ -292,19 +312,19 @@ export default function CsvConverterPage() {
           } as ShopifyCustomerFormData));
 
           resetCustomerForm({ customers: newCustomersToSet });
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise(resolve => setTimeout(resolve, 0)); // Allow state to update
           const isValid = await triggerCustomerForm();
 
           let tempErrorIndices: number[] = [];
           if (!isValid && customerFormMethods.formState.errors.customers) {
-            const customerErrors = customerFormMethods.formState.errors.customers;
+            const customerErrors = customerFormMethods.formState.errors.customers as any[]; // Type assertion
             newCustomersToSet.forEach((_, i) => {
               if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
                 tempErrorIndices.push(i);
               }
             });
           }
-          setCustomerCurrentErrorIndices(tempErrorIndices); 
+          // setCustomerCurrentErrorIndices is handled by useEffect based on formState
 
           if (tempErrorIndices.length > 0) {
             setCustomerDisplayMode('errors');
@@ -316,6 +336,7 @@ export default function CsvConverterPage() {
             if (result.type === 'customers_found' && newCustomersToSet.length > 0 && isValid) {
               toast({ title: 'Customer CSV Imported', description: `${newCustomersToSet.length} customer(s) loaded and valid.` });
             } else if (result.type === 'customers_found' && newCustomersToSet.length > 0 && !isValid) {
+              // This case should be covered by the tempErrorIndices check above
               toast({ title: 'Imported with Validation Issues', description: 'Check form for errors. Errors have been highlighted.', variant: 'destructive' });
             } else if (result.type === 'no_customers_extracted') {
               toast({ title: 'Import Note', description: result.message });
@@ -368,14 +389,29 @@ export default function CsvConverterPage() {
     }
   };
 
+  const handleToggleAllCustomerSubscriptions = () => {
+    const currentCustomers = getCustomerValues().customers;
+    const targetSubscriptionStatus = !allCustomersSubscribed;
+    currentCustomers.forEach((_, index) => {
+      setCustomerValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldValidate: true, shouldDirty: true });
+    });
+    setAllCustomersSubscribed(targetSubscriptionStatus); // Optimistically update UI
+    toast({
+      title: targetSubscriptionStatus ? "All Customers Subscribed" : "All Customers Unsubscribed",
+      description: `Marketing preference updated for ${currentCustomers.length} customer(s).`
+    });
+  };
+
+
   // --- Product Actions ---
     const addNewProduct = () => {
     setProductDisplayMode('all');
     appendProduct({
       id: crypto.randomUUID(), handle: '', title: '', bodyHtml: '', vendor: '', productType: '',
-      tags: '', published: true, option1Name: '', option1Value: '', option2Name: '', option2Value: '',
+      tags: '', published: true, option1Name: 'Title', option1Value: 'Default Title', option2Name: '', option2Value: '',
       option3Name: '', option3Value: '', variantSku: '', variantPrice: 0, variantInventoryQty: 0,
-      imageSrc: '', imageAltText: '', seoTitle: '', seoDescription: '', magentoProductType: 'simple', isVariantRow: false,
+      variantWeight: 0, variantWeightUnit: 'g', variantRequiresShipping: true, variantTaxable: true,
+      imageSrc: '', imagePosition:1, imageAltText: '', seoTitle: '', seoDescription: '', magentoProductType: 'simple', isVariantRow: false,
     });
     const newTotalAllItems = productFields.length + 1;
     const itemsPerPageForAll = productShowAll ? (newTotalAllItems > 0 ? newTotalAllItems : 1) : productItemsPerPage;
@@ -417,8 +453,8 @@ export default function CsvConverterPage() {
       reader.onload = async (e) => {
         try {
           const csvString = e.target?.result as string;
-          // Pass the base image URL to the parser
-          const result: ParseProductResult = parseMagentoProductCsv(csvString, magentoBaseImageUrl); 
+          const currentBaseUrl = magentoBaseImageUrlRef.current; // Use the ref here
+          const result: ParseProductResult = parseMagentoProductCsv(csvString, currentBaseUrl); 
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
           if (result.type === 'products_found') parsedProducts = result.data;
@@ -432,8 +468,8 @@ export default function CsvConverterPage() {
             productType: p.productType || '',
             tags: p.tags || '',
             published: p.published ?? true,
-            option1Name: p.option1Name || '',
-            option1Value: p.option1Value || '',
+            option1Name: p.option1Name || 'Title',
+            option1Value: p.option1Value || 'Default Title',
             option2Name: p.option2Name || '',
             option2Value: p.option2Value || '',
             option3Name: p.option3Name || '',
@@ -456,17 +492,17 @@ export default function CsvConverterPage() {
           } as ShopifyProductFormData));
 
           resetProductForm({ products: newProductsToSet });
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise(resolve => setTimeout(resolve, 0)); // Allow state to update
           const isValid = await triggerProductForm();
 
           let tempErrorIndices: number[] = [];
            if (!isValid && productFormMethods.formState.errors.products) {
-            const productErrors = productFormMethods.formState.errors.products;
+            const productErrors = productFormMethods.formState.errors.products as any[]; // Type assertion
             newProductsToSet.forEach((_, i) => {
               if (productErrors[i] && Object.keys(productErrors[i]!).length > 0) tempErrorIndices.push(i);
             });
           }
-          setProductCurrentErrorIndices(tempErrorIndices);
+          // setProductCurrentErrorIndices is handled by useEffect
 
           if (tempErrorIndices.length > 0) {
             setProductDisplayMode('errors');
@@ -476,7 +512,7 @@ export default function CsvConverterPage() {
             setProductDisplayMode('all');
             setProductCurrentPage(1);
              if (result.type === 'products_found' && newProductsToSet.length > 0 && isValid) {
-              toast({ title: 'Product CSV Imported', description: `${newProductsToSet.length} product(s) loaded and valid.` });
+              toast({ title: 'Product CSV Imported', description: `${newProductsToSet.length} product entries loaded and valid.` });
             } else if (result.type === 'products_found' && newProductsToSet.length > 0 && !isValid) {
               toast({ title: 'Imported with Validation Issues', description: 'Check form for errors.', variant: 'destructive' });
             } else if (result.type === 'no_products_extracted') {
@@ -619,6 +655,17 @@ export default function CsvConverterPage() {
                 >
                     <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify {entityName} CSV
                 </Button>
+                {isCustomerMode && fields.length > 0 && !isLoading && (
+                   <Button
+                      onClick={handleToggleAllCustomerSubscriptions}
+                      variant={allCustomersSubscribed ? "secondary" : "outline"}
+                      className={allCustomersSubscribed ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"}
+                      disabled={isLoading || fields.length === 0}
+                    >
+                      {allCustomersSubscribed ? <MailMinus className="mr-2 h-5 w-5" /> : <MailPlus className="mr-2 h-5 w-5" />}
+                      {allCustomersSubscribed ? "Schrijf Iedereen Uit Nieuwsbrief" : "Schrijf Iedereen In Nieuwsbrief"}
+                    </Button>
+                )}
                 {!isCustomerMode && (
                   <div className="flex items-center space-x-2">
                     <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
@@ -660,7 +707,7 @@ export default function CsvConverterPage() {
                         <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentErrorIndices.length > 0 && (
-                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
                     )}
                     {displayMode === 'test' && (
                         <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
@@ -669,7 +716,7 @@ export default function CsvConverterPage() {
                          <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
                     )}
                      {displayMode === 'test' && currentErrorIndices.length > 0 && ( 
-                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
+                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
                     )}
                      {displayMode === 'errors' && currentTestFilterIndices.length > 0 && (
                         <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
@@ -712,7 +759,7 @@ export default function CsvConverterPage() {
                 <div className="text-center py-10">
                     <p className="text-xl text-muted-foreground">Alle {entityNamePlural.toLowerCase()} zijn verborgen door de huidige filterinstellingen.</p>
                     {currentErrorIndices.length > 0 && (
-                        <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
+                        <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityName.toLowerCase()}(en) met fouten ({currentErrorIndices.length})</Button>
                     )}
                      {currentTestFilterIndices.length > 0 && (
                         <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
