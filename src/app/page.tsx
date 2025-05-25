@@ -16,7 +16,7 @@ import { CustomerEntryForm } from '@/components/customer-entry-form';
 import { ProductEntryForm } from '@/components/product-entry-form';
 import { PaginationControls } from '@/components/pagination-controls';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft } from 'lucide-react';
+import { Upload, Download, PlusCircle, RefreshCw, SearchCheck, Users, ShoppingBag, AlignLeft, Image as ImageIcon } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -55,6 +56,7 @@ export default function CsvConverterPage() {
   const [productDisplayMode, setProductDisplayMode] = useState<DisplayMode>('all');
   const [productCurrentErrorIndices, setProductCurrentErrorIndices] = useState<number[]>([]);
   const [productCurrentTestFilterIndices, setProductCurrentTestFilterIndices] = useState<number[]>([]);
+  const [magentoBaseImageUrl, setMagentoBaseImageUrl] = useState<string>('');
 
 
   const customerFormMethods = useForm<ShopifyCustomersFormData>({
@@ -104,7 +106,6 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (customerFormState.errors.customers && customerFields.length > 0) {
       const indices: number[] = [];
-      // Use customerFields.length as the source of truth for the number of items
       for (let i = 0; i < customerFields.length; i++) {
         if (customerFormState.errors.customers[i] && Object.keys(customerFormState.errors.customers[i]!).length > 0) {
           indices.push(i);
@@ -114,7 +115,7 @@ export default function CsvConverterPage() {
     } else {
       setCustomerCurrentErrorIndices([]);
     }
-  }, [customerFormState.errors.customers, customerFields]); // Depend on customerFields
+  }, [customerFormState.errors.customers, customerFields]);
 
   useEffect(() => {
     if (customerDisplayMode === 'errors' && customerCurrentErrorIndices.length === 0 && customerFields.length > 0 && !customerIsLoading) {
@@ -209,7 +210,7 @@ export default function CsvConverterPage() {
       return;
     }
     if (totalItems === 0 && (displayMode === 'errors' || displayMode === 'test')) {
-      setCurrentPage(1); // Stay on page 1 even if no items for specific filter
+      setCurrentPage(1);
       return;
     }
 
@@ -234,8 +235,7 @@ export default function CsvConverterPage() {
       address2: '', city: '', province: '', provinceCode: '', country: '', countryCode: '',
       zip: '', phone: '', acceptsMarketing: false, acceptsSmsMarketing: false, tags: '', note: '', taxExempt: false,
     });
-    // Ensure new item is visible
-    const newTotalAllItems = customerFields.length + 1; // +1 for the item being added
+    const newTotalAllItems = customerFields.length + 1;
     const itemsPerPageForAll = customerShowAll ? (newTotalAllItems > 0 ? newTotalAllItems : 1) : customerItemsPerPage;
     const newTotalPagesForAll = Math.ceil(newTotalAllItems / itemsPerPageForAll);
     setCustomerCurrentPage(newTotalPagesForAll);
@@ -267,9 +267,9 @@ export default function CsvConverterPage() {
     const file = event.target.files?.[0];
     if (file) {
       setCustomerIsLoading(true);
-      setCustomerDisplayMode('all'); // Reset display mode on new upload
+      setCustomerDisplayMode('all');
       setCustomerCurrentPage(1);
-      setCustomerCurrentTestFilterIndices([]); // Reset test filter
+      setCustomerCurrentTestFilterIndices([]);
 
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -280,7 +280,6 @@ export default function CsvConverterPage() {
           let parsedCustomers: Partial<ShopifyCustomerFormData>[] = [];
           if (result.type === 'customers_found') parsedCustomers = result.data;
 
-          // Ensure all fields defined in the schema have default values if not present in parsed data
           const newCustomersToSet = parsedCustomers.map(c => ({
             id: c.id || crypto.randomUUID(),
             firstName: c.firstName || '', lastName: c.lastName || '',
@@ -288,31 +287,28 @@ export default function CsvConverterPage() {
             address2: c.address2 || '', city: c.city || '', province: c.province || '',
             provinceCode: c.provinceCode || '', country: c.country || '', countryCode: c.countryCode || '',
             zip: c.zip || '', phone: c.phone || '', acceptsMarketing: c.acceptsMarketing ?? false,
-            acceptsSmsMarketing: c.acceptsSmsMarketing ?? false, // Ensure this is defaulted
+            acceptsSmsMarketing: c.acceptsSmsMarketing ?? false,
             tags: c.tags || '', note: c.note || '', taxExempt: c.taxExempt ?? false,
           } as ShopifyCustomerFormData));
 
           resetCustomerForm({ customers: newCustomersToSet });
-          await new Promise(resolve => setTimeout(resolve, 0)); // Allow RHF to process reset
-          const isValid = await triggerCustomerForm(); // Validate all fields
+          await new Promise(resolve => setTimeout(resolve, 0));
+          const isValid = await triggerCustomerForm();
 
           let tempErrorIndices: number[] = [];
           if (!isValid && customerFormMethods.formState.errors.customers) {
             const customerErrors = customerFormMethods.formState.errors.customers;
-            // Iterate based on the number of customers just set
             newCustomersToSet.forEach((_, i) => {
               if (customerErrors[i] && Object.keys(customerErrors[i]!).length > 0) {
                 tempErrorIndices.push(i);
               }
             });
           }
-          
-          // Update currentErrorIndices state to trigger re-render for error display mode
           setCustomerCurrentErrorIndices(tempErrorIndices); 
 
           if (tempErrorIndices.length > 0) {
             setCustomerDisplayMode('errors');
-            setCustomerCurrentPage(1); // Go to the first page of errors
+            setCustomerCurrentPage(1);
             toast({ title: "Validation Errors Found", description: `Displaying ${tempErrorIndices.length} customer(s) with errors. Please review.`, variant: "destructive" });
           } else {
             setCustomerDisplayMode('all');
@@ -320,7 +316,6 @@ export default function CsvConverterPage() {
             if (result.type === 'customers_found' && newCustomersToSet.length > 0 && isValid) {
               toast({ title: 'Customer CSV Imported', description: `${newCustomersToSet.length} customer(s) loaded and valid.` });
             } else if (result.type === 'customers_found' && newCustomersToSet.length > 0 && !isValid) {
-              // This case should ideally be handled by the block above, but as a fallback.
               toast({ title: 'Imported with Validation Issues', description: 'Check form for errors. Errors have been highlighted.', variant: 'destructive' });
             } else if (result.type === 'no_customers_extracted') {
               toast({ title: 'Import Note', description: result.message });
@@ -332,11 +327,11 @@ export default function CsvConverterPage() {
           }
         } catch (errorCatch) {
           console.error("Error processing customer CSV:", errorCatch);
-          setCustomerDisplayMode('all'); // Reset to all on unexpected error
+          setCustomerDisplayMode('all');
           toast({ title: 'Import Failed', description: 'Could not process customer CSV.', variant: 'destructive' });
         } finally {
           setCustomerIsLoading(false);
-          if (customerFileInputRef.current) customerFileInputRef.current.value = ''; // Reset file input
+          if (customerFileInputRef.current) customerFileInputRef.current.value = '';
         }
       };
       reader.readAsText(file);
@@ -352,13 +347,12 @@ export default function CsvConverterPage() {
   const handleFindCustomerTestEntries = () => {
     const allCustomers = getCustomerValues().customers;
     const indices: number[] = [];
-    const testRegex = /\btest\b/i; // Match whole word "test", case-insensitive
+    const testRegex = /\btest\b/i;
     allCustomers.forEach((customer, index) => {
       const searchableFields = [
         customer.firstName, customer.lastName, customer.email, customer.company,
         customer.address1, customer.address2, customer.city, customer.province,
         customer.country, customer.zip, customer.phone, customer.note
-        // Exclude customer.tags from this specific search
       ];
       if (searchableFields.some(field => typeof field === 'string' && field && testRegex.test(field))) {
         indices.push(index);
@@ -423,7 +417,8 @@ export default function CsvConverterPage() {
       reader.onload = async (e) => {
         try {
           const csvString = e.target?.result as string;
-          const result: ParseProductResult = parseMagentoProductCsv(csvString); 
+          // Pass the base image URL to the parser
+          const result: ParseProductResult = parseMagentoProductCsv(csvString, magentoBaseImageUrl); 
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
           if (result.type === 'products_found') parsedProducts = result.data;
@@ -437,8 +432,8 @@ export default function CsvConverterPage() {
             productType: p.productType || '',
             tags: p.tags || '',
             published: p.published ?? true,
-            option1Name: p.option1Name || 'Title', // Default for simple products
-            option1Value: p.option1Value || 'Default Title', // Default for simple products
+            option1Name: p.option1Name || 'Title', 
+            option1Value: p.option1Value || 'Default Title', 
             option2Name: p.option2Name || '',
             option2Value: p.option2Value || '',
             option3Name: p.option3Name || '',
@@ -518,7 +513,7 @@ export default function CsvConverterPage() {
     allProducts.forEach((product, index) => {
       const searchableFields = [
         product.handle, product.title, product.bodyHtml, product.vendor, product.productType,
-        /* product.tags, // Exclude tags if needed */ product.variantSku, product.option1Value, product.option2Value, product.option3Value,
+        product.variantSku, product.option1Value, product.option2Value, product.option3Value,
         product.seoTitle, product.seoDescription
       ];
       if (searchableFields.some(field => typeof field === 'string' && field && testRegex.test(field))) {
@@ -552,7 +547,6 @@ export default function CsvConverterPage() {
   const handleFileUpload = isCustomerMode ? handleCustomerFileUpload : handleProductFileUpload;
   const fileInputRef = isCustomerMode ? customerFileInputRef : productFileInputRef;
   const addNewEntry = isCustomerMode ? addNewCustomer : addNewProduct;
-  // Ensure correct RHF submit handler is used based on active tab
   const onFormSubmit = isCustomerMode ? onCustomerFormSubmit : onProductFormSubmit; 
   const handleSubmit = isCustomerMode ? handleCustomerSubmit : handleProductSubmit; 
   const currentErrorIndices = isCustomerMode ? customerCurrentErrorIndices : productCurrentErrorIndices;
@@ -618,13 +612,27 @@ export default function CsvConverterPage() {
                     <PlusCircle className="mr-2 h-5 w-5" /> Nieuwe {entityName} Handmatig Toevoegen
                 </Button>
                 <Button
-                    onClick={handleSubmit(onFormSubmit)} // Use RHF's handleSubmit
+                    onClick={handleSubmit(onFormSubmit)}
                     variant="secondary"
                     className="bg-accent hover:bg-accent/90 text-accent-foreground"
                     disabled={isLoading || fields.length === 0}
                 >
                     <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify {entityName} CSV
                 </Button>
+                {!isCustomerMode && (
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
+                    <Input
+                      id="magento-base-image-url"
+                      type="url"
+                      placeholder="https://uw-magento-winkel.com/media/catalog/product"
+                      value={magentoBaseImageUrl}
+                      onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
+                      className="w-96"
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
                  {(fields.length > 0 ) && !isLoading && (
                   <>
                     <div className="flex items-center space-x-2">
@@ -648,21 +656,18 @@ export default function CsvConverterPage() {
                      <Button onClick={handleFindTestEntries} variant="outline" disabled={isLoading || fields.length === 0}>
                         <SearchCheck className="mr-2 h-5 w-5" /> Vind 'Test' Vermeldingen
                     </Button>
-                    {/* Error display toggles */}
                     {displayMode === 'errors' && currentErrorIndices.length > 0 && (
                         <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentErrorIndices.length > 0 && (
                          <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
                     )}
-                    {/* Test filter display toggles */}
-                    {displayMode === 'test' && ( // Always show "Show All" if in test mode
+                    {displayMode === 'test' && (
                         <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()} ({fields.length})</Button>
                     )}
                     {displayMode === 'all' && currentTestFilterIndices.length > 0 && ( 
                          <Button onClick={() => { setDisplayMode('test'); setCurrentPage(1);}} variant="link" className="text-blue-600 hover:text-blue-500">Toon alleen 'test' vermeldingen ({currentTestFilterIndices.length})</Button>
                     )}
-                    {/* Cross-filter toggles */}
                      {displayMode === 'test' && currentErrorIndices.length > 0 && ( 
                          <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
                     )}
@@ -684,7 +689,6 @@ export default function CsvConverterPage() {
         )}
 
         {!isLoading && (
-          // Ensure the correct form is submitted based on the active tab
           <form onSubmit={handleSubmit(onFormSubmit)}> 
             {fields.length === 0 && displayMode === 'all' && (
                <div className="text-center py-10">
@@ -692,7 +696,6 @@ export default function CsvConverterPage() {
                 <p className="text-sm text-muted-foreground">Klik op "Importeer {entityName} CSV" of "Nieuwe {entityName} Handmatig Toevoegen" om te beginnen.</p>
               </div>
             )}
-            {/* Empty state messages for filtered views */}
             {itemsToPaginate.length === 0 && displayMode === 'errors' && (
                  <div className="text-center py-10">
                  <p className="text-xl text-muted-foreground">Geen {entityNamePlural.toLowerCase()} met validatiefouten gevonden.</p>
@@ -705,11 +708,9 @@ export default function CsvConverterPage() {
                  <Button onClick={() => { setDisplayMode('all'); setCurrentPage(1);}} variant="link">Toon alle {entityNamePlural.toLowerCase()}</Button>
                </div>
             )}
-             {/* Message if all items are hidden by current filters but items exist */}
              {itemsToPaginate.length === 0 && displayMode === 'all' && fields.length > 0 && (currentErrorIndices.length > 0 || currentTestFilterIndices.length >0) && (
                 <div className="text-center py-10">
                     <p className="text-xl text-muted-foreground">Alle {entityNamePlural.toLowerCase()} zijn verborgen door de huidige filterinstellingen.</p>
-                    {/* Provide options to switch to active filters */}
                     {currentErrorIndices.length > 0 && (
                         <Button onClick={() => { setDisplayMode('errors'); setCurrentPage(1);}} variant="link" className="text-destructive hover:text-destructive/80">Toon alleen {entityNamePlural.toLowerCase()} met fouten ({currentErrorIndices.length})</Button>
                     )}
@@ -723,15 +724,14 @@ export default function CsvConverterPage() {
               if (isCustomerMode) {
                 return (
                   <CustomerEntryForm
-                    key={field.id} // Use field.id from useFieldArray
+                    key={field.id}
                     control={customerControl}
-                    index={originalIndex} // Use originalIndex for form array access
+                    index={originalIndex}
                     remove={() => removeCustomer(originalIndex)}
                     errors={customerFormState.errors} 
                   />
                 );
               } else {
-                // Ensure field is correctly typed for ProductEntryForm
                 const productField = field as ShopifyProductFormData & { id: string };
                 return (
                   <ProductEntryForm
@@ -740,7 +740,7 @@ export default function CsvConverterPage() {
                     index={originalIndex}
                     remove={() => removeProduct(originalIndex)}
                     errors={productFormState.errors}
-                    productData={productField} // Pass the specific product data
+                    productData={productField} 
                   />
                 );
               }
