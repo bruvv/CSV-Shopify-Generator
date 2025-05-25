@@ -299,7 +299,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel className="flex items-center"><Search className="mr-2 h-4 w-4 text-muted-foreground" />SEO Title</FormLabel>
-                    <FormControl><Input placeholder="Max 70 characters" {...field} className={cn(productErrors?.seoTitle && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    <FormControl><Input placeholder="Max 70 characters e.g. Awesome Product Name" {...field} className={cn(productErrors?.seoTitle && "border-destructive focus-visible:ring-destructive")} /></FormControl>
                     {productErrors?.seoTitle && <FormMessage>{productErrors.seoTitle.message}</FormMessage>}
                 </FormItem>
                 )}
@@ -310,7 +310,7 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel className="flex items-center"><Search className="mr-2 h-4 w-4 text-muted-foreground" />SEO Description</FormLabel>
-                    <FormControl><Textarea placeholder="Max 320 characters" {...field} className={cn("min-h-[80px]", productErrors?.seoDescription && "border-destructive focus-visible:ring-destructive")} /></FormControl>
+                    <FormControl><Textarea placeholder="Max 320 characters. Briefly describe your product." {...field} className={cn("min-h-[80px]", productErrors?.seoDescription && "border-destructive focus-visible:ring-destructive")} /></FormControl>
                     {productErrors?.seoDescription && <FormMessage>{productErrors.seoDescription.message}</FormMessage>}
                 </FormItem>
                 )}
@@ -371,3 +371,4 @@ export function ProductEntryForm({ control, index, remove, errors, productData }
     </Card>
   );
 }
+
