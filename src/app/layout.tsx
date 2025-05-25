@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Magento to Shopify Customer CSV Converter',
-  description: 'Convert Magento customer CSV files to Shopify importable customer format.',
+  title: 'Magento naar Shopify CSV Converter',
+  description: 'Converteer Magento klant- of product-CSV-bestanden naar het voor Shopify importeerbare formaat.',
 };
 
 export default function RootLayout({
