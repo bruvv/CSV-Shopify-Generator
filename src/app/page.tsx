@@ -46,7 +46,6 @@ export default function CsvConverterPage() {
   const [customerDisplayMode, setCustomerDisplayMode] = useState<DisplayMode>('all');
   const [customerCurrentErrorIndices, setCustomerCurrentErrorIndices] = useState<number[]>([]);
   const [customerCurrentTestFilterIndices, setCustomerCurrentTestFilterIndices] = useState<number[]>([]);
-  const [allCustomersSubscribed, setAllCustomersSubscribed] = useState(false);
 
 
   // Product specific state
@@ -88,17 +87,6 @@ export default function CsvConverterPage() {
     getValues: getCustomerValues,
     setValue: setCustomerValue,
   } = customerFormMethods;
-
-  const watchedCustomers = watchCustomerForm("customers");
-
-  useEffect(() => {
-    if (watchedCustomers && watchedCustomers.length > 0) {
-      const allSub = watchedCustomers.every(c => c.acceptsMarketing);
-      setAllCustomersSubscribed(allSub);
-    } else {
-      setAllCustomersSubscribed(false);
-    }
-  }, [watchedCustomers]);
 
   const { fields: customerFields, append: appendCustomer, remove: removeCustomer } = useFieldArray({
     control: customerControl,
@@ -387,19 +375,6 @@ export default function CsvConverterPage() {
     }
   };
 
-  const handleToggleAllCustomerSubscriptions = () => {
-    const currentCustomers = getCustomerValues().customers;
-    const targetSubscriptionStatus = !allCustomersSubscribed;
-    currentCustomers.forEach((_, index) => {
-      setCustomerValue(`customers.${index}.acceptsMarketing`, targetSubscriptionStatus, { shouldValidate: true, shouldDirty: true });
-    });
-    setAllCustomersSubscribed(targetSubscriptionStatus); 
-    toast({
-      title: targetSubscriptionStatus ? "All Customers Subscribed" : "All Customers Unsubscribed",
-      description: `Marketing preference updated for ${currentCustomers.length} customer(s).`
-    });
-  };
-
 
   // --- Product Actions ---
     const addNewProduct = () => {
@@ -631,7 +606,7 @@ export default function CsvConverterPage() {
             <h2 className="text-2xl font-semibold mb-4 text-primary">Acties voor {entityNamePlural}</h2>
             <div className="flex flex-wrap items-center gap-4">
                  {!isCustomerMode && (
-                  <div className="flex flex-col space-y-1 w-full md:w-auto">
+                  <div className="flex flex-col space-y-1 w-full">
                     <div className="flex items-center space-x-2">
                       <Label htmlFor="magento-base-image-url" className="text-sm font-medium flex items-center"><ImageIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Magento Basis Afbeeldings-URL:</Label>
                       <Input
@@ -676,17 +651,6 @@ export default function CsvConverterPage() {
                 >
                     <Download className="mr-2 h-5 w-5" /> Genereer & Download Shopify {entityName} CSV
                 </Button>
-                {isCustomerMode && fields.length > 0 && !isLoading && (
-                   <Button
-                      onClick={handleToggleAllCustomerSubscriptions}
-                      variant={allCustomersSubscribed ? "secondary" : "outline"}
-                      className={allCustomersSubscribed ? "bg-accent hover:bg-accent/90 text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"}
-                      disabled={isLoading || fields.length === 0}
-                    >
-                      {allCustomersSubscribed ? <MailMinus className="mr-2 h-5 w-5" /> : <MailPlus className="mr-2 h-5 w-5" />}
-                      {allCustomersSubscribed ? "Schrijf Iedereen Uit Nieuwsbrief" : "Schrijf Iedereen In Nieuwsbrief"}
-                    </Button>
-                )}
                
                  {(fields.length > 0 ) && !isLoading && (
                   <>
