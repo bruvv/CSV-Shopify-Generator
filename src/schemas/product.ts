@@ -24,7 +24,7 @@ export const shopifyProductSchema = z.object({
   variantSku: z.string().optional().default(''), // Shopify: Variant SKU
   variantPrice: z.preprocess(
     (val) => (String(val).trim() === '' ? undefined : Number(String(val).replace(',', '.'))),
-    z.number().positive({ message: "Price must be positive" }).optional()
+    z.number().nonnegative({ message: "Price must be non-negative" }).optional()
   ).default(0),
   variantCompareAtPrice: z.preprocess(
     (val) => (String(val).trim() === '' ? undefined : Number(String(val).replace(',', '.'))),
@@ -37,7 +37,7 @@ export const shopifyProductSchema = z.object({
   variantRequiresShipping: z.boolean().optional().default(true),
   variantTaxable: z.boolean().optional().default(true),
   variantWeight: z.preprocess(
-    (val) => (String(val).trim() === '' ? undefined : Number(val)),
+    (val) => (String(val).trim() === '' ? undefined : Number(String(val).replace(',', '.'))),
     z.number().nonnegative().optional()
   ).default(0),
   variantWeightUnit: z.enum(['g', 'kg', 'lb', 'oz']).optional().default('g'),
