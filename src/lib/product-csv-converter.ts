@@ -2,10 +2,10 @@
 import type { ShopifyProductFormData } from '@/schemas/product';
 
 export type ParseProductResult =
-  | { 
-      type: 'products_found'; 
-      data: Partial<ShopifyProductFormData>[]; 
-      message: string; 
+  | {
+      type: 'products_found';
+      data: Partial<ShopifyProductFormData>[];
+      message: string;
       processedNonEmptyLines: number;
       linesSkippedNoSku: number;
       simpleProductsCollected: number;
@@ -14,21 +14,21 @@ export type ParseProductResult =
       variantsProcessedForConfigurables: number;
       variantSkusNotFoundInSimples: number;
       standaloneSimplesProcessed: number;
-      shopifyEntryCount: number; 
+      shopifyEntryCount: number;
     }
-  | { 
-      type: 'no_products_extracted'; 
-      message: string; 
+  | {
+      type: 'no_products_extracted';
+      message: string;
       processedNonEmptyLines: number;
       linesSkippedNoSku: number;
       simpleProductsCollected: number;
       configurableProductsCollected: number;
       otherProductTypesSkipped: number;
     }
-  | { 
-      type: 'parse_error'; 
-      message: string; 
-      processedNonEmptyLines: number; 
+  | {
+      type: 'parse_error';
+      message: string;
+      processedNonEmptyLines: number;
     };
 
 
@@ -74,7 +74,7 @@ const parseCsvLine = (line: string, delimiter: ',' | ';'): string[] => {
     }
   }
   result.push(currentValue);
-  return result.map(field => field.trim().replace(/^"|"$/g, '')); // Also remove surrounding quotes from fields if they are not part of escaped quotes
+  return result.map(field => field.trim().replace(/^"|"$/g, ''));
 };
 
 const detectDelimiter = (line: string): ',' | ';' => {
@@ -117,7 +117,6 @@ const buildFullImageUrl = (imagePath: string | undefined, baseUrl: string | unde
     return imagePath;
   }
 
-  console.log('[buildFullImageUrl] Proceeding to construct full URL with provided baseUrl.');
   const trimmedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   const trimmedImagePath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
 
@@ -137,15 +136,17 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   let variantsProcessedForConfigurables = 0;
   let variantSkusNotFoundInSimples = 0;
   let standaloneSimplesProcessed = 0;
+  const notFoundVariantSkusList: {configurableSku: string, missingSimpleSku: string}[] = [];
+
 
   if (!trimmedCsvString) return { type: 'parse_error', message: 'The CSV file is empty.', processedNonEmptyLines: 0 };
 
   const allLines = trimmedCsvString.split(/\r?\n/);
   if (allLines.length === 0) return { type: 'parse_error', message: 'The CSV file has no lines.', processedNonEmptyLines: 0 };
-  
+
   const headerLine = allLines[0];
   const dataLines = allLines.slice(1);
-  
+
   if (allLines.length < 2) return { type: 'parse_error', message: 'The CSV file must contain a header row and at least one data row.', processedNonEmptyLines: 0 };
 
   const delimiter = detectDelimiter(headerLine);
@@ -153,8 +154,8 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   const rawHeaders = parseCsvLine(headerLine, delimiter);
   const headers = rawHeaders.map((h, idx) => {
     let cleanH = h.toLowerCase().trim();
-    if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, ''); // Remove BOM
-    if (cleanH.startsWith('"') && cleanH.endsWith('"')) { // Remove surrounding quotes
+    if (idx === 0) cleanH = cleanH.replace(/^\ufeff/, '');
+    if (cleanH.startsWith('"') && cleanH.endsWith('"')) {
         cleanH = cleanH.substring(1, cleanH.length - 1);
     }
     return cleanH;
@@ -220,19 +221,20 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
       magentoConfigurableProducts.push(rowData);
       configurableProductsCollected++;
     } else {
+      console.log(`Skipping product with SKU '${currentSku}' due to unhandled type: '${type}'`);
       otherProductTypesSkipped++;
     }
   }
 
   const shopifyProducts: Partial<ShopifyProductFormData>[] = [];
-  let imagePositionGlobalCounter = 1; // To ensure unique image positions for a product and its variants
+  let imagePositionGlobalCounter = 1;
 
   for (const mConfig of magentoConfigurableProducts) {
-    imagePositionGlobalCounter = 1; // Reset for each new configurable product
+    imagePositionGlobalCounter = 1;
     const configSku = mConfig[headers[skuIdx]];
     const configName = mConfig[headers[nameIdx]] || configSku;
-    
-    let option1NameFromLabel = 'Option'; 
+
+    let option1NameFromLabel = 'Option';
     if (configurableVariationLabelsIdx !== -1 && mConfig[headers[configurableVariationLabelsIdx]]) {
         const labelParts = mConfig[headers[configurableVariationLabelsIdx]].split('=');
         if (labelParts.length > 0 && labelParts[0].trim()) {
@@ -250,19 +252,19 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
       tags: categoriesIdx !== -1 ? extractTagsFromCategories(mConfig[headers[categoriesIdx]]) : '',
       published: (visibilityIdx !== -1 ? !(mConfig[headers[visibilityIdx]]?.toLowerCase().includes("not visible")) : true) &&
                  (productOnlineIdx !== -1 ? (String(mConfig[headers[productOnlineIdx]]) !== '2' && String(mConfig[headers[productOnlineIdx]])?.toLowerCase() !== 'disabled') : true),
-      variantPrice: priceIdx !== -1 && mConfig[headers[priceIdx]] ? parseFloat(mConfig[headers[priceIdx]]) : 0,
-      variantInventoryQty: 0, 
+      variantPrice: priceIdx !== -1 && mConfig[headers[priceIdx]] ? parseFloat(String(mConfig[headers[priceIdx]]).replace(',','.')) : 0,
+      variantInventoryQty: 0,
       variantTaxable: taxClassIdx !== -1 ? !(mConfig[headers[taxClassIdx]]?.toLowerCase().includes('none') || String(mConfig[headers[taxClassIdx]]) === '0') : true,
-      variantWeight: weightIdx !== -1 && mConfig[headers[weightIdx]] ? parseFloat(mConfig[headers[weightIdx]]) : 0,
+      variantWeight: weightIdx !== -1 && mConfig[headers[weightIdx]] ? parseFloat(String(mConfig[headers[weightIdx]]).replace(',','.')) : 0,
       imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mConfig[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
-      imagePosition: imagePositionGlobalCounter++,
+      imagePosition: imagePositionGlobalCounter++, // Will be 1 for first variant or main image
       seoTitle: metaTitleIdx !== -1 ? mConfig[headers[metaTitleIdx]] || configName : configName,
       seoDescription: metaDescriptionIdx !== -1 ? mConfig[headers[metaDescriptionIdx]] || mConfig[headers[shortDescriptionIdx]] || '' : mConfig[headers[shortDescriptionIdx]] || '',
       magentoProductType: 'configurable',
       isVariantRow: false,
       option1Name: option1NameFromLabel,
     };
-    
+
     const variationsStr = configurableVariationsIdx !== -1 ? mConfig[headers[configurableVariationsIdx]] : '';
     let firstVariantProcessedForThisConfigurable = false;
 
@@ -272,42 +274,41 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
         const attributes = variation.split(',');
         let simpleSku: string | undefined;
         let optionValue: string | undefined;
-        
-        const optionKeyFromConfigLabel = option1NameFromLabel; // Use the determined label
+
+        const optionKeyFromConfigLabel = option1NameFromLabel;
 
         attributes.forEach(attr => {
           const [key, value] = attr.split('=');
-          if (key && value) { 
+          if (key && value) {
             if (key.trim().toLowerCase() === 'sku') simpleSku = value.trim();
-            // Match against the actual attribute name used in configurable_variation_labels
             if (key.trim() === optionKeyFromConfigLabel) optionValue = value.trim();
           }
         });
-        
-        if (simpleSku) { // Check if simpleSku was found
+
+        if (simpleSku) {
           const mSimple = magentoSimpleProducts.get(simpleSku);
           if (mSimple) {
             variantsProcessedForConfigurables++;
             const variantPublishedStatus = (visibilityIdx !== -1 ? !(mSimple[headers[visibilityIdx]]?.toLowerCase().includes("not visible")) : true) &&
                                (productOnlineIdx !== -1 ? (String(mSimple[headers[productOnlineIdx]]) !== '2' && String(mSimple[headers[productOnlineIdx]])?.toLowerCase() !== 'disabled') : true);
 
-            if (!firstVariantProcessedForThisConfigurable) { // This is the first variant, update mainProductData
-                mainProductData.option1Value = optionValue || 'Default'; // Assign option value
-                mainProductData.variantPrice = priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : (mainProductData.variantPrice || 0);
-                mainProductData.variantSku = simpleSku; 
+            if (!firstVariantProcessedForThisConfigurable) {
+                mainProductData.option1Value = optionValue || 'Default';
+                mainProductData.variantPrice = priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(String(mSimple[headers[priceIdx]]).replace(',','.')) : (mainProductData.variantPrice || 0);
+                mainProductData.variantSku = simpleSku;
                 mainProductData.variantInventoryQty = qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0;
-                mainProductData.variantWeight = weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : (mainProductData.variantWeight || 0);
+                mainProductData.variantWeight = weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(String(mSimple[headers[weightIdx]]).replace(',','.')) : (mainProductData.variantWeight || 0);
                 mainProductData.imageSrc = buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl) || mainProductData.imageSrc;
-                mainProductData.imagePosition = 1; // First variant's image is primary for the main product row
-                mainProductData.published = variantPublishedStatus; 
-                
-                shopifyProducts.push({...mainProductData}); // Add the main product data (now updated with first variant details)
+                mainProductData.imagePosition = 1;
+                mainProductData.published = variantPublishedStatus;
+
+                shopifyProducts.push({...mainProductData});
                 firstVariantProcessedForThisConfigurable = true;
-            } else { // This is for subsequent variant rows for the same configurable
+            } else {
                  const variantProductData: Partial<ShopifyProductFormData> = {
                     id: crypto.randomUUID(),
-                    handle: configSku, // Same handle as parent
-                    title: '', 
+                    handle: configSku,
+                    title: '',
                     bodyHtml: '',
                     vendor: '',
                     productType: '',
@@ -316,44 +317,41 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
                     option1Name: option1NameFromLabel,
                     option1Value: optionValue || 'Default',
                     variantSku: simpleSku,
-                    variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : 0,
+                    variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(String(mSimple[headers[priceIdx]]).replace(',','.')) : 0,
                     variantInventoryQty: qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0,
                     variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || String(mSimple[headers[taxClassIdx]]) === '0') : true,
-                    variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : 0,
+                    variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(String(mSimple[headers[weightIdx]]).replace(',','.')) : 0,
                     imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
-                    imagePosition: imagePositionGlobalCounter++, 
+                    imagePosition: imagePositionGlobalCounter++,
                     seoTitle: '',
                     seoDescription: '',
-                    magentoProductType: 'simple_variant', 
+                    magentoProductType: 'simple_variant',
                     isVariantRow: true,
                 };
                 shopifyProducts.push(variantProductData);
             }
-            magentoSimpleProducts.delete(simpleSku); // Remove processed simple from map
+            magentoSimpleProducts.delete(simpleSku);
           } else {
-             if(simpleSku) variantSkusNotFoundInSimples++; // Count if simple SKU was expected but not found
-             console.warn(`Configurable variation references SKU "${simpleSku}" but it was not found among simple products.`);
+             if(simpleSku) {
+                variantSkusNotFoundInSimples++;
+                notFoundVariantSkusList.push({ configurableSku: configSku, missingSimpleSku: simpleSku });
+             }
+             console.warn(`Configurable variation for "${configSku}" references SKU "${simpleSku}" but it was not found among simple products.`);
           }
         } else {
-            // This case means a variation string didn't parse out a simpleSku,
-            // which might indicate malformed configurable_variations data.
             console.warn(`Could not parse simple SKU from variation string: "${variation}" for configurable "${configSku}"`);
         }
       }
     }
-    // If no variants were processed for this configurable (e.g., empty configurable_variations or all SKUs not found)
-    // and the main product data wasn't pushed yet (because firstVariantProcessedForThisConfigurable is false)
-    // then push the mainProductData as a simple product.
     if (!firstVariantProcessedForThisConfigurable) {
-        mainProductData.option1Name = mainProductData.option1Name || 'Title'; // Ensure option names
+        mainProductData.option1Name = mainProductData.option1Name || 'Title';
         mainProductData.option1Value = mainProductData.option1Value || 'Default Title';
-        mainProductData.variantSku = configSku; // Use config SKU as variant SKU
-        mainProductData.imagePosition = 1; // Ensure image position
+        mainProductData.variantSku = configSku;
+        mainProductData.imagePosition = 1;
         shopifyProducts.push(mainProductData);
     }
   }
 
-  // Process remaining simple products (those not used as variants)
   for (const [sku, mSimple] of magentoSimpleProducts.entries()) {
     standaloneSimplesProcessed++;
     const simpleName = mSimple[headers[nameIdx]] || sku;
@@ -370,10 +368,10 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
       option1Name: 'Title',
       option1Value: 'Default Title',
       variantSku: sku,
-      variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(mSimple[headers[priceIdx]]) : 0,
+      variantPrice: priceIdx !== -1 && mSimple[headers[priceIdx]] ? parseFloat(String(mSimple[headers[priceIdx]]).replace(',','.')) : 0,
       variantInventoryQty: qtyIdx !== -1 && mSimple[headers[qtyIdx]] ? parseInt(mSimple[headers[qtyIdx]], 10) : 0,
       variantTaxable: taxClassIdx !== -1 ? !(mSimple[headers[taxClassIdx]]?.toLowerCase().includes('none') || String(mSimple[headers[taxClassIdx]]) === '0') : true,
-      variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(mSimple[headers[weightIdx]]) : 0,
+      variantWeight: weightIdx !== -1 && mSimple[headers[weightIdx]] ? parseFloat(String(mSimple[headers[weightIdx]]).replace(',','.')) : 0,
       imageSrc: buildFullImageUrl(baseImageIdx !== -1 ? mSimple[headers[baseImageIdx]] : undefined, magentoBaseImageUrl),
       imagePosition: 1,
       seoTitle: metaTitleIdx !== -1 ? mSimple[headers[metaTitleIdx]] || simpleName : simpleName,
@@ -383,6 +381,11 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     };
     shopifyProducts.push(simpleProductData);
   }
+
+  if (notFoundVariantSkusList.length > 0) {
+    console.warn("Missing simple product SKUs referenced in configurable_variations:", notFoundVariantSkusList);
+  }
+
 
   console.log("Product Parsing Stats:", {
     processedNonEmptyLines,
@@ -397,9 +400,9 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   });
 
   if (shopifyProducts.length > 0) {
-    return { 
-        type: 'products_found', 
-        data: shopifyProducts, 
+    return {
+        type: 'products_found',
+        data: shopifyProducts,
         message: `Magento: ${processedNonEmptyLines} lines. Shopify: ${shopifyProducts.length} entries.`,
         processedNonEmptyLines,
         linesSkippedNoSku,
@@ -409,12 +412,12 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
         variantsProcessedForConfigurables,
         variantSkusNotFoundInSimples,
         standaloneSimplesProcessed,
-        shopifyEntryCount: shopifyProducts.length 
+        shopifyEntryCount: shopifyProducts.length
     };
   } else {
-    return { 
-        type: 'no_products_extracted', 
-        message: 'No products or variants could be extracted. Check CSV format and content.', 
+    return {
+        type: 'no_products_extracted',
+        message: 'No products or variants could be extracted. Check CSV format and content.',
         processedNonEmptyLines,
         linesSkippedNoSku,
         simpleProductsCollected,
@@ -443,19 +446,13 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
   ];
 
   const csvData = products.map(p => {
-    const isParentRow = !p.isVariantRow; // A row is a parent if it's not a variant row
-    
+    const isParentRow = !p.isVariantRow;
+
     const title = isParentRow ? p.title : '';
     const bodyHtml = isParentRow ? p.bodyHtml : '';
     const vendor = isParentRow ? p.vendor : '';
-    const productTypeVal = isParentRow ? p.productType : ''; 
+    const productTypeVal = isParentRow ? p.productType : '';
     const tags = isParentRow ? p.tags : '';
-    // Published status for the main product row (first row for a handle) should reflect the parent.
-    // Subsequent variant rows have their own published status. Shopify's CSV expects TRUE/FALSE or blank for variants.
-    // For simplicity here, we use the product's own published status.
-    // The Shopify importer handles this: if the main product row is "FALSE", all variants are hidden.
-    // If "TRUE", then individual variant published status might matter less or Shopify has specific rules.
-    // We'll use the `p.published` which is now correctly set per variant during parsing.
     const publishedStatus = p.published ? 'TRUE' : 'FALSE';
     const shopifyStatus = p.published ? 'active' : 'draft';
 
@@ -465,10 +462,10 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
         title,
         bodyHtml,
         vendor,
-        '', 
+        '',
         productTypeVal,
         tags,
-        publishedStatus, 
+        publishedStatus,
         p.option1Name,
         p.option1Value,
         p.option2Name || '',
@@ -476,33 +473,37 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
         p.option3Name || '',
         p.option3Value || '',
         p.variantSku,
-        String(p.variantWeight ?? 0), 
-        p.variantInventoryQty && p.variantInventoryQty > 0 ? 'shopify' : '', 
-        String(p.variantInventoryQty ?? 0), 
-        'deny', 
-        'manual', 
-        String(p.variantPrice ?? 0), 
-        p.variantCompareAtPrice ? String(p.variantCompareAtPrice) : '',
-        p.variantRequiresShipping ? 'TRUE' : 'FALSE', 
-        p.variantTaxable ? 'TRUE' : 'FALSE', 
-        '', 
-        p.imageSrc, // Main image for parent, variant image for variant (if different)
+        String(p.variantWeight ?? 0).replace('.',','), // Use comma for decimal in CSV for some locales
+        p.variantInventoryQty && p.variantInventoryQty > 0 ? 'shopify' : '',
+        String(p.variantInventoryQty ?? 0),
+        'deny',
+        'manual',
+        String(p.variantPrice ?? 0).replace('.',','), // Use comma for decimal
+        p.variantCompareAtPrice ? String(p.variantCompareAtPrice).replace('.',',') : '',
+        p.variantRequiresShipping ? 'TRUE' : 'FALSE',
+        p.variantTaxable ? 'TRUE' : 'FALSE',
+        '',
+        p.imageSrc,
         String(p.imagePosition ?? 1),
-        isParentRow ? (p.imageAltText || p.title) : (p.imageAltText || p.option1Value), // Alt text strategy
-        'FALSE', 
-        isParentRow ? (p.seoTitle || p.title) : '', 
-        isParentRow ? p.seoDescription : '', 
-        '', '', '', '', '', '', '', '', '', '', '', '', '', 
-        p.isVariantRow ? p.imageSrc : '', // Variant Image: blank for parent, image for variant
-        p.variantWeightUnit || 'g', 
-        '', 
-        '', 
-        '', 
-        '', 
-        shopifyStatus 
+        isParentRow ? (p.imageAltText || p.title) : (p.imageAltText || p.option1Value),
+        'FALSE',
+        isParentRow ? (p.seoTitle || p.title) : '',
+        isParentRow ? p.seoDescription : '',
+        '', '', '', '', '', '', '', '', '', '', '', '', '',
+        p.isVariantRow ? p.imageSrc : '',
+        p.variantWeightUnit || 'g',
+        '',
+        '',
+        '',
+        '',
+        shopifyStatus
     ];
   });
 
   return arrayToCsv(shopifyHeaders, csvData);
 };
 
+// Ensure prices and weights use period for decimal in internal logic,
+// but comma for CSV output if Shopify expects that for certain locales.
+// For now, parseMagentoProductCsv will ensure parseFloat uses period-decimal.
+// generateShopifyProductCsv will convert period to comma for relevant numeric fields.
