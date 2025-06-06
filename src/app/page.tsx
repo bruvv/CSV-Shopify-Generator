@@ -426,7 +426,7 @@ export default function CsvConverterPage() {
           const csvString = e.target?.result as string;
           const currentBaseUrl = magentoBaseImageUrlRef.current; 
           const result: ParseProductResult = parseMagentoProductCsv(csvString, currentBaseUrl); 
-          console.log("Full product parsing result:", result); // For detailed debugging
+          console.log("Full product parsing result:", result); 
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
           if (result.type === 'products_found') parsedProducts = result.data;
@@ -483,17 +483,20 @@ export default function CsvConverterPage() {
             setProductDisplayMode('all');
             setProductCurrentPage(1);
              if (result.type === 'products_found' && newProductsToSet.length > 0 && isValid) {
-                let summary = `Magento: ${result.processedNonEmptyLines} lines. Shopify: ${result.shopifyEntryCount} entries.`;
-                if (result.configurableProductsCollected > 0) {
-                    summary += `\nConfigurable: ${result.configurableProductsCollected} (processed ${result.variantsProcessedForConfigurables} variants, ${result.variantSkusNotFoundInSimples} not found).`;
+                let summary = `Magento: ${result.processedNonEmptyLines} lines processed. Shopify: ${result.shopifyEntryCount} entries generated.`;
+                if (result.linesSkippedColumnCountMismatch > 0) {
+                    summary += `\nSkipped due to column mismatch: ${result.linesSkippedColumnCountMismatch} lines.`;
                 }
-                summary += `\nStandalone Simples: ${result.standaloneSimplesProcessed}.`;
-                summary += `\nSkipped: ${result.linesSkippedNoSku} (no SKU) + ${result.otherProductTypesSkipped} (other type).`;
-                toast({ title: 'Product CSV Imported', description: summary, duration: 9000 });
+                if (result.configurableProductsCollected > 0) {
+                    summary += `\nConfigurable products found: ${result.configurableProductsCollected} (processed ${result.variantsProcessedForConfigurables} variants, ${result.variantSkusNotFoundInSimples} variants not found).`;
+                }
+                summary += `\nStandalone Simples processed: ${result.standaloneSimplesProcessed}.`;
+                summary += `\nSkipped (no SKU): ${result.linesSkippedNoSku}. Skipped (other type): ${result.otherProductTypesSkipped}.`;
+                toast({ title: 'Product CSV Imported', description: summary, duration: 15000 });
             } else if (result.type === 'products_found' && newProductsToSet.length > 0 && !isValid) {
               toast({ title: 'Imported with Validation Issues', description: `Magento CSV processed (${result.processedNonEmptyLines} lines). Check form for errors.`, variant: 'destructive' });
             } else if (result.type === 'no_products_extracted') {
-              toast({ title: 'Import Note', description: `${result.message} (Magento: ${result.processedNonEmptyLines} lines).`, duration: 9000 });
+              toast({ title: 'Import Note', description: `${result.message} (Magento: ${result.processedNonEmptyLines} lines processed).`, duration: 9000 });
             } else if (result.type === 'parse_error') {
               toast({ title: 'Import Failed', description: `${result.message} (Processed ${result.processedNonEmptyLines} lines before error).`, variant: 'destructive' });
             } else if (newProductsToSet.length === 0 && result.type === 'products_found'){
