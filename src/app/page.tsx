@@ -128,7 +128,6 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (customerDisplayMode === 'errors' && customerCurrentErrorIndices.length === 0 && customerFields.length > 0 && !customerIsLoading) {
       setCustomerDisplayMode('all');
-      // toast({ title: "All Customer Errors Fixed!", description: "Displaying all customers." });
       setCustomerCurrentPage(1);
     }
   }, [customerDisplayMode, customerCurrentErrorIndices, customerFields.length, customerIsLoading, toast]);
@@ -151,7 +150,6 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (productDisplayMode === 'errors' && productCurrentErrorIndices.length === 0 && productFields.length > 0 && !productIsLoading) {
       setProductDisplayMode('all');
-      // toast({ title: "All Product Errors Fixed!", description: "Displaying all products." });
       setProductCurrentPage(1);
     }
   }, [productDisplayMode, productCurrentErrorIndices, productFields.length, productIsLoading, toast]);
@@ -484,15 +482,15 @@ export default function CsvConverterPage() {
             setProductDisplayMode('all');
             setProductCurrentPage(1);
              if (result.type === 'products_found' && newProductsToSet.length > 0 && isValid) {
-              toast({ title: 'Product CSV Imported', description: `${newProductsToSet.length} product entries loaded and valid.` });
+              toast({ title: 'Product CSV Imported', description: `${result.rawRecordCount} Magento records processed, ${result.shopifyEntryCount} Shopify entries generated.` });
             } else if (result.type === 'products_found' && newProductsToSet.length > 0 && !isValid) {
-              toast({ title: 'Imported with Validation Issues', description: 'Check form for errors.', variant: 'destructive' });
+              toast({ title: 'Imported with Validation Issues', description: `Magento CSV processed (${result.rawRecordCount} records). Check form for errors.`, variant: 'destructive' });
             } else if (result.type === 'no_products_extracted') {
-              toast({ title: 'Import Note', description: result.message });
+              toast({ title: 'Import Note', description: `${result.message} (${result.rawRecordCount} Magento records processed).` });
             } else if (result.type === 'parse_error') {
-              toast({ title: 'Import Failed', description: result.message, variant: 'destructive' });
+              toast({ title: 'Import Failed', description: `${result.message} (Processed ${result.rawRecordCount} records before error).`, variant: 'destructive' });
             } else if (newProductsToSet.length === 0 && result.type === 'products_found'){
-                 toast({ title: 'Import Note', description: 'CSV parsed, but no product data extracted.', variant: 'default'});
+                 toast({ title: 'Import Note', description: `CSV parsed (${result.rawRecordCount} records), but no product data extracted.`, variant: 'default'});
             }
           }
         } catch (errorCatch) {
