@@ -426,6 +426,7 @@ export default function CsvConverterPage() {
           const csvString = e.target?.result as string;
           const currentBaseUrl = magentoBaseImageUrlRef.current; 
           const result: ParseProductResult = parseMagentoProductCsv(csvString, currentBaseUrl); 
+          console.log("Full product parsing result:", result); // For detailed debugging
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
           if (result.type === 'products_found') parsedProducts = result.data;
@@ -482,15 +483,21 @@ export default function CsvConverterPage() {
             setProductDisplayMode('all');
             setProductCurrentPage(1);
              if (result.type === 'products_found' && newProductsToSet.length > 0 && isValid) {
-              toast({ title: 'Product CSV Imported', description: `${result.rawRecordCount} Magento records processed, ${result.shopifyEntryCount} Shopify entries generated.` });
+                let summary = `Magento: ${result.processedNonEmptyLines} lines. Shopify: ${result.shopifyEntryCount} entries.`;
+                if (result.configurableProductsCollected > 0) {
+                    summary += `\nConfigurable: ${result.configurableProductsCollected} (processed ${result.variantsProcessedForConfigurables} variants, ${result.variantSkusNotFoundInSimples} not found).`;
+                }
+                summary += `\nStandalone Simples: ${result.standaloneSimplesProcessed}.`;
+                summary += `\nSkipped: ${result.linesSkippedNoSku} (no SKU) + ${result.otherProductTypesSkipped} (other type).`;
+                toast({ title: 'Product CSV Imported', description: summary, duration: 9000 });
             } else if (result.type === 'products_found' && newProductsToSet.length > 0 && !isValid) {
-              toast({ title: 'Imported with Validation Issues', description: `Magento CSV processed (${result.rawRecordCount} records). Check form for errors.`, variant: 'destructive' });
+              toast({ title: 'Imported with Validation Issues', description: `Magento CSV processed (${result.processedNonEmptyLines} lines). Check form for errors.`, variant: 'destructive' });
             } else if (result.type === 'no_products_extracted') {
-              toast({ title: 'Import Note', description: `${result.message} (${result.rawRecordCount} Magento records processed).` });
+              toast({ title: 'Import Note', description: `${result.message} (Magento: ${result.processedNonEmptyLines} lines).`, duration: 9000 });
             } else if (result.type === 'parse_error') {
-              toast({ title: 'Import Failed', description: `${result.message} (Processed ${result.rawRecordCount} records before error).`, variant: 'destructive' });
+              toast({ title: 'Import Failed', description: `${result.message} (Processed ${result.processedNonEmptyLines} lines before error).`, variant: 'destructive' });
             } else if (newProductsToSet.length === 0 && result.type === 'products_found'){
-                 toast({ title: 'Import Note', description: `CSV parsed (${result.rawRecordCount} records), but no product data extracted.`, variant: 'default'});
+                 toast({ title: 'Import Note', description: `CSV parsed (${result.processedNonEmptyLines} lines), but no product data extracted.`, variant: 'default'});
             }
           }
         } catch (errorCatch) {
@@ -611,7 +618,7 @@ export default function CsvConverterPage() {
                       <Input
                         id="magento-base-image-url"
                         type="url"
-                        placeholder="https://your-magento-store.com/media/catalog/product/"
+                        placeholder="e.g. https://your-magento-store.com/media/catalog/product/"
                         value={magentoBaseImageUrl}
                         onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
                         className="w-full md:w-96"
