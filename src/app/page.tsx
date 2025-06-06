@@ -128,7 +128,6 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (customerDisplayMode === 'errors' && customerCurrentErrorIndices.length === 0 && customerFields.length > 0 && !customerIsLoading) {
       setCustomerDisplayMode('all');
-      // toast({ title: "All Customer Errors Fixed!", description: "Displaying all customers." });
       setCustomerCurrentPage(1);
     }
   }, [customerDisplayMode, customerCurrentErrorIndices, customerFields.length, customerIsLoading, toast]);
@@ -151,7 +150,6 @@ export default function CsvConverterPage() {
   useEffect(() => {
     if (productDisplayMode === 'errors' && productCurrentErrorIndices.length === 0 && productFields.length > 0 && !productIsLoading) {
       setProductDisplayMode('all');
-      // toast({ title: "All Product Errors Fixed!", description: "Displaying all products." });
       setProductCurrentPage(1);
     }
   }, [productDisplayMode, productCurrentErrorIndices, productFields.length, productIsLoading, toast]);
@@ -428,6 +426,7 @@ export default function CsvConverterPage() {
           const csvString = e.target?.result as string;
           const currentBaseUrl = magentoBaseImageUrlRef.current; 
           const result: ParseProductResult = parseMagentoProductCsv(csvString, currentBaseUrl); 
+          console.log("Full product parsing result:", result); 
 
           let parsedProducts: Partial<ShopifyProductFormData>[] = [];
           if (result.type === 'products_found') parsedProducts = result.data;
@@ -484,15 +483,24 @@ export default function CsvConverterPage() {
             setProductDisplayMode('all');
             setProductCurrentPage(1);
              if (result.type === 'products_found' && newProductsToSet.length > 0 && isValid) {
-              toast({ title: 'Product CSV Imported', description: `${newProductsToSet.length} product entries loaded and valid.` });
+                let summary = `Magento: ${result.processedNonEmptyLines} lines processed. Shopify: ${result.shopifyEntryCount} entries generated.`;
+                if (result.linesSkippedColumnCountMismatch > 0) {
+                    summary += `\nSkipped due to column mismatch: ${result.linesSkippedColumnCountMismatch} lines.`;
+                }
+                if (result.configurableProductsCollected > 0) {
+                    summary += `\nConfigurable products found: ${result.configurableProductsCollected} (processed ${result.variantsProcessedForConfigurables} variants, ${result.variantSkusNotFoundInSimples} variants not found).`;
+                }
+                summary += `\nStandalone Simples processed: ${result.standaloneSimplesProcessed}.`;
+                summary += `\nSkipped (no SKU): ${result.linesSkippedNoSku}. Skipped (other type): ${result.otherProductTypesSkipped}.`;
+                toast({ title: 'Product CSV Imported', description: summary, duration: 15000 });
             } else if (result.type === 'products_found' && newProductsToSet.length > 0 && !isValid) {
-              toast({ title: 'Imported with Validation Issues', description: 'Check form for errors.', variant: 'destructive' });
+              toast({ title: 'Imported with Validation Issues', description: `Magento CSV processed (${result.processedNonEmptyLines} lines). Check form for errors.`, variant: 'destructive' });
             } else if (result.type === 'no_products_extracted') {
-              toast({ title: 'Import Note', description: result.message });
+              toast({ title: 'Import Note', description: `${result.message} (Magento: ${result.processedNonEmptyLines} lines processed).`, duration: 9000 });
             } else if (result.type === 'parse_error') {
-              toast({ title: 'Import Failed', description: result.message, variant: 'destructive' });
+              toast({ title: 'Import Failed', description: `${result.message} (Processed ${result.processedNonEmptyLines} lines before error).`, variant: 'destructive' });
             } else if (newProductsToSet.length === 0 && result.type === 'products_found'){
-                 toast({ title: 'Import Note', description: 'CSV parsed, but no product data extracted.', variant: 'default'});
+                 toast({ title: 'Import Note', description: `CSV parsed (${result.processedNonEmptyLines} lines), but no product data extracted.`, variant: 'default'});
             }
           }
         } catch (errorCatch) {
@@ -613,7 +621,7 @@ export default function CsvConverterPage() {
                       <Input
                         id="magento-base-image-url"
                         type="url"
-                        placeholder="https://your-magento-store.com/media/catalog/product/"
+                        placeholder="e.g. https://your-magento-store.com/media/catalog/product/"
                         value={magentoBaseImageUrl}
                         onChange={(e) => setMagentoBaseImageUrl(e.target.value)}
                         className="w-full md:w-96"
