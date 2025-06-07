@@ -25,6 +25,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
       - run: npm ci
+      - name: Install jest-junit
+        run: npm install --save-dev jest-junit
       - name: Run Jest tests
         run: npx jest tests --ci --reporters=default --reporters=jest-junit
       - name: Upload Jest test results
