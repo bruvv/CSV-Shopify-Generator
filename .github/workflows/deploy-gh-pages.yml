@@ -17,7 +17,6 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
-      - run: npm run export
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:

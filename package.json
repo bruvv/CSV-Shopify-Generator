@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "export": "next export"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
@@ -57,6 +58,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
     "@types/jest": "^29.5.8",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
