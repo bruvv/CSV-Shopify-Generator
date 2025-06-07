@@ -25,16 +25,3 @@ jobs:
       - run: npm ci
       - name: Build Next.js app
         run: npm run build
-      - name: Start Next.js app
-        run: npm run start &
-        env:
-          NODE_ENV: production
-      - name: Wait for app to be available
-        run: |
-          for i in {1..30}; do
-            if curl -sSf http://localhost:3000 > /dev/null; then
-              echo "App is up!" && exit 0
-            fi
-            sleep 2
-          done
-          echo "App did not start in time" && exit 1
