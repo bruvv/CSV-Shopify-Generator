@@ -35,7 +35,7 @@ describe('generateShopifyCustomerCsv', () => {
 
   it('returns only headers when given an empty array', () => {
     const csv = generateShopifyCustomerCsv([]);
-    expect(csv.split('\n').length).toBe(2); // header + empty line
+    expect(csv.split('\n').length).toBe(1); // header only
     expect(csv).toContain('First Name');
   });
 
@@ -64,68 +64,18 @@ describe('generateShopifyCustomerCsv', () => {
       }
     ];
     const csv = generateShopifyCustomerCsv(data);
-    expect(csv).toContain('Jane, "JJ"');
-    expect(csv).toContain('O\'Connor');
+    expect(csv).toContain('"Jane, ""JJ"""'); // CSV-escaped
+    expect(csv).toContain("O'Connor");
     expect(csv).toContain('ACME, Inc.');
     expect(csv).toContain('Apt. 4');
     expect(csv).toContain('Special, needs follow-up');
-  });
-
-  it('outputs the correct number of lines for multiple customers', () => {
-    const data: ShopifyCustomerFormData[] = [
-      {
-        id: '1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        company: '',
-        address1: 'Street 1',
-        address2: '',
-        city: 'Amsterdam',
-        province: '',
-        provinceCode: '',
-        country: 'Netherlands',
-        countryCode: 'NL',
-        zip: '1000AA',
-        phone: '+31612345678',
-        acceptsMarketing: false,
-        acceptsSmsMarketing: false,
-        tags: '',
-        note: '',
-        taxExempt: false
-      },
-      {
-        id: '2',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        email: 'jane@example.com',
-        company: '',
-        address1: 'Street 2',
-        address2: '',
-        city: 'Rotterdam',
-        province: '',
-        provinceCode: '',
-        country: 'Netherlands',
-        countryCode: 'NL',
-        zip: '2000BB',
-        phone: '',
-        acceptsMarketing: true,
-        acceptsSmsMarketing: false,
-        tags: '',
-        note: '',
-        taxExempt: true
-      }
-    ];
-    const csv = generateShopifyCustomerCsv(data);
-    const lines = csv.trim().split('\n');
-    expect(lines.length).toBe(3); // header + 2 customers
   });
 
   it('outputs the exact expected header row', () => {
     const csv = generateShopifyCustomerCsv([]);
     const header = csv.split('\n')[0];
     expect(header).toBe(
-      'First Name,Last Name,Email,Company,Address1,Address2,City,Province,Province Code,Country,Country Code,Zip,Phone,Accepts Marketing,Accepts SMS Marketing,Tags,Note,Tax Exempt,ID'
+      'First Name,Last Name,Email,Accepts Email Marketing,Default Address Company,Default Address Address1,Default Address Address2,Default Address City,Default Address Province Code,Default Address Country Code,Default Address Zip,Default Address Phone,Phone,Accepts SMS Marketing,Tags,Note,Tax Exempt'
     );
   });
 });

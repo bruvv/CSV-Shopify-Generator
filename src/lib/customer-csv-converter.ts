@@ -1,4 +1,3 @@
-
 import type { ShopifyCustomerFormData } from '@/schemas/customer';
 
 export type ParseCustomerResult =
@@ -324,9 +323,6 @@ export const parseMagentoCustomerCsv = (csvString: string): ParseCustomerResult 
   if (customers.length > 0) {
     return { type: 'customers_found', data: customers, message: `${customers.length} customer(s) loaded from the CSV. Review and edit if needed.` };
   } else {
-    if (mappableHeadersFound || headers.length > 0) { 
-         return { type: 'no_customers_extracted', message: 'CSV headers were recognized, but no valid customer data rows could be extracted. Check if rows have essential info like email or names, and ensure data aligns with headers.' };
-    }
-    return { type: 'no_customers_extracted', message: 'Could not extract any customer data from the CSV. Please ensure it contains customer information with recognizable headers.' };
+    return { type: 'no_customers_extracted', message: 'No valid customer data rows could be extracted. Check if rows have essential info like email or names, and ensure data aligns with headers.' };
   }
 };

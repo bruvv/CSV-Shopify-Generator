@@ -179,15 +179,37 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
   const skippedOtherTypeSkus: {sku: string, type: string}[] = [];
 
 
-  if (!trimmedCsvString) return { type: 'parse_error', message: 'The CSV file is empty.', processedNonEmptyLines: 0, linesSkippedColumnCountMismatch: 0 };
+  if (!trimmedCsvString) return { type: 'no_products_extracted', message: 'The CSV file is empty.', processedNonEmptyLines: 0, linesSkippedNoSku: 0, linesSkippedColumnCountMismatch: 0, simpleProductsCollected: 0, configurableProductsCollected: 0, otherProductTypesSkipped: 0, variantsProcessedForConfigurables: 0, variantSkusNotFoundInSimples: 0, standaloneSimplesProcessed: 0, shopifyEntryCount: 0 };
 
   const allLines = trimmedCsvString.split(/\r?\n/);
-  if (allLines.length === 0) return { type: 'parse_error', message: 'The CSV file has no lines.', processedNonEmptyLines: 0, linesSkippedColumnCountMismatch: 0 };
+  // Check for header only (no data rows)
+  if (allLines.length === 1 && allLines[0].trim() !== '') {
+    const headerCols = allLines[0].split(',').map(h => h.trim().toLowerCase());
+    if (headerCols.includes('sku')) {
+      return { type: 'no_products_extracted', message: 'CSV only contains a header row.', processedNonEmptyLines: 0, linesSkippedNoSku: 0, linesSkippedColumnCountMismatch: 0, simpleProductsCollected: 0, configurableProductsCollected: 0, otherProductTypesSkipped: 0, variantsProcessedForConfigurables: 0, variantSkusNotFoundInSimples: 0, standaloneSimplesProcessed: 0, shopifyEntryCount: 0 };
+    } else {
+      return { type: 'parse_error', message: 'The CSV file must contain a header row and at least one data row.', processedNonEmptyLines: 0, linesSkippedColumnCountMismatch: 0 };
+    }
+  }
+
+  if (allLines.length === 0 || allLines.every(line => !line.trim())) return { type: 'no_products_extracted', message: 'The CSV file has no lines.', processedNonEmptyLines: 0, linesSkippedNoSku: 0, linesSkippedColumnCountMismatch: 0, simpleProductsCollected: 0, configurableProductsCollected: 0, otherProductTypesSkipped: 0, variantsProcessedForConfigurables: 0, variantSkusNotFoundInSimples: 0, standaloneSimplesProcessed: 0, shopifyEntryCount: 0 };
 
   const headerLine = allLines[0];
-  const dataLines = allLines.slice(1);
+  // const dataLines = allLines.slice(1);
 
   if (allLines.length < 2) return { type: 'parse_error', message: 'The CSV file must contain a header row and at least one data row.', processedNonEmptyLines: 0, linesSkippedColumnCountMismatch: 0 };
+
+  // If only header row is present (no data rows), treat as no_products_extracted
+  if (allLines.length === 1 && allLines[0].trim() !== '' && allLines[0].toLowerCase().includes('sku')) {
+    return { type: 'no_products_extracted', message: 'CSV only contains a header row.', processedNonEmptyLines: 0, linesSkippedNoSku: 0, linesSkippedColumnCountMismatch: 0, simpleProductsCollected: 0, configurableProductsCollected: 0, otherProductTypesSkipped: 0, variantsProcessedForConfigurables: 0, variantSkusNotFoundInSimples: 0, standaloneSimplesProcessed: 0, shopifyEntryCount: 0 };
+  }
+  // If only header row is present (no data rows), treat as no_products_extracted if header includes a 'sku' column
+  const headerCols = allLines[0].split(',').map(h => h.trim().toLowerCase());
+  const dataLines = allLines.slice(1);
+  const hasNonEmptyData = dataLines.some(line => line.trim() !== '');
+  if (!hasNonEmptyData && headerCols.includes('sku')) {
+    return { type: 'no_products_extracted', message: 'CSV only contains a header row.', processedNonEmptyLines: 0, linesSkippedNoSku: 0, linesSkippedColumnCountMismatch: 0, simpleProductsCollected: 0, configurableProductsCollected: 0, otherProductTypesSkipped: 0, variantsProcessedForConfigurables: 0, variantSkusNotFoundInSimples: 0, standaloneSimplesProcessed: 0, shopifyEntryCount: 0 };
+  }
 
   const delimiter = detectDelimiter(headerLine);
 
