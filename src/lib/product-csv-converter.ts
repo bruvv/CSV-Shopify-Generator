@@ -1,4 +1,3 @@
-
 import type { ShopifyProductFormData } from '@/schemas/product';
 
 export type ParseProductResult =
@@ -292,7 +291,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
 
 
     const mainProductData: Partial<ShopifyProductFormData> = {
-      id: crypto.randomUUID(),
+      id: getRandomUUID(),
       handle: configSku,
       title: configName,
       bodyHtml: mConfig[headers[descriptionIdx]] || mConfig[headers[shortDescriptionIdx]] || '',
@@ -363,7 +362,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
                 firstVariantProcessedForThisConfigurable = true;
             } else {
                  const variantProductData: Partial<ShopifyProductFormData> = {
-                    id: crypto.randomUUID(),
+                    id: getRandomUUID(),
                     handle: configSku,
                     title: '',
                     bodyHtml: '',
@@ -409,7 +408,7 @@ export const parseMagentoProductCsv = (csvString: string, magentoBaseImageUrl?: 
     standaloneSimplesProcessed++;
     const simpleName = mSimple[headers[nameIdx]] || sku;
     const simpleProductData: Partial<ShopifyProductFormData> = {
-      id: crypto.randomUUID(),
+      id: getRandomUUID(),
       handle: sku,
       title: simpleName,
       bodyHtml: mSimple[headers[descriptionIdx]] || mSimple[headers[shortDescriptionIdx]] || '',
@@ -567,3 +566,16 @@ export const generateShopifyProductCsv = (products: ShopifyProductFormData[]): s
 
   return arrayToCsv(shopifyHeaders, csvData);
 };
+
+// Polyfill for crypto.randomUUID for Node <19
+function getRandomUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  // Generates a RFC4122 version 4 UUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
