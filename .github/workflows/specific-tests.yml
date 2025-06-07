@@ -33,5 +33,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jest-results
+          name: jest-results-${{ matrix.node-version }}
           path: junit.xml
